@@ -66,6 +66,16 @@ class Chamado(db.Model):
     observacao_texto = db.Column(db.Text, nullable=True)
     data_finalizacao = db.Column(db.DateTime, nullable=True)
 
+# --- FUNÇÕES AUXILIARES ---
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
+
 # --- ROTAS PÚBLICAS (Chatbot e App do Técnico) ---
 @app.route('/')
 def index():
@@ -101,6 +111,19 @@ def tecnico_login():
         db.session.commit()
         return jsonify({'mensagem': 'Login bem-sucedido.', 'tecnico_id': tecnico.id, 'nome': tecnico.nome})
     return jsonify({'erro': 'Credenciais inválidas.'}), 401
+    
+@app.route('/tecnico/atualizar_localizacao', methods=['POST'])
+def atualizar_localizacao():
+    dados = request.json
+    if not all(k in dados for k in ['tecnico_id', 'latitude', 'longitude']):
+        return jsonify({'erro': 'Dados incompletos.'}), 400
+    tecnico = Tecnico.query.get(dados['tecnico_id'])
+    if not tecnico:
+        return jsonify({'erro': 'Técnico não encontrado.'}), 404
+    tecnico.last_latitude = dados['latitude']
+    tecnico.last_longitude = dados['longitude']
+    db.session.commit()
+    return jsonify({'mensagem': 'Localização atualizada com sucesso.'})
 
 @app.route('/chamado/<int:chamado_id>/finalizar', methods=['POST'])
 def finalizar_chamado(chamado_id):
@@ -146,7 +169,7 @@ def gerir_cliente_especifico(id):
 def gerir_elevadores():
     if request.method == 'GET':
         elevadores = Elevador.query.order_by(Elevador.id).all()
-        return jsonify([{'id': e.id, 'codigo_qr': e.codigo_qr, 'endereco': e.endereco, 'cliente_id': e.cliente_id, 'cliente_nome': e.cliente.nome} for e in elevadores])
+        return jsonify([{'id': e.id, 'codigo_qr': e.codigo_qr, 'endereco': e.endereco, 'latitude': e.latitude, 'longitude': e.longitude, 'cliente_id': e.cliente_id, 'cliente_nome': e.cliente.nome} for e in elevadores])
     elif request.method == 'POST':
         dados = request.json
         novo_elevador = Elevador(codigo_qr=dados['codigo_qr'], endereco=dados['endereco'], latitude=dados['latitude'], longitude=dados['longitude'], cliente_id=dados['cliente_id'])
@@ -209,16 +232,21 @@ with app.app_context():
     db.create_all()
     if not Cliente.query.first():
         print("Base de dados vazia. Populando com dados iniciais...")
-        # ... (código para popular a base de dados) ...
+        c1 = Cliente(nome='Condomínio Edifício Central', possui_contrato=True)
+        c2 = Cliente(nome='Shopping Plaza Norte', possui_contrato=True)
+        c3 = Cliente(nome='Torre Empresarial Faria Lima', possui_contrato=True)
+        db.session.add_all([c1, c2, c3])
+        e1 = Elevador(codigo_qr='ELEV-001-SP', endereco='Av. Paulista, 1000, São Paulo, SP', latitude=-23.5613, longitude=-46.6565, cliente=c1)
+        e2 = Elevador(codigo_qr='ELEV-002-RJ', endereco='Av. Atlântica, 2000, Rio de Janeiro, RJ', latitude=-22.9697, longitude=-43.1868, cliente=c2)
+        e3 = Elevador(codigo_qr='ELEV-003-SP', endereco='Av. Faria Lima, 4500, São Paulo, SP', latitude=-23.5869, longitude=-46.6823, cliente=c3)
+        db.session.add_all([e1, e2, e3])
+        t1 = Tecnico(nome='Carlos Silva', username='carlos', password='123', de_plantao=True, last_latitude=-23.55, last_longitude=-46.64)
+        t2 = Tecnico(nome='Ana Souza', username='ana', password='123', de_plantao=True, last_latitude=-22.98, last_longitude=-43.20)
+        t3 = Tecnico(nome='João Pereira', username='joao', password='123', de_plantao=False)
+        db.session.add_all([t1, t2, t3])
+        db.session.commit()
+        print("Banco de dados inicializado com dados de exemplo.")
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
-
-def calcular_distancia(lat1, lon1, lat2, lon2):
-    R = 6371.0
-    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
-    a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return R * c
