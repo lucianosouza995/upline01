@@ -265,4 +265,31 @@
             // LÓGICA RESTAURADA
             const updateLocation = async () => {
                 if (!state.technicianId) return;
-                co
+                const lat = -23.55 + (Math.random() - 0.5) * 0.1;
+                const lon = -46.63 + (Math.random() - 0.5) * 0.1;
+                try {
+                    const response = await fetch(`${API_URL}/tecnico/atualizar_localizacao`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tecnico_id: state.technicianId, latitude: lat, longitude: lon })
+                    });
+                    if(response.ok) {
+                        alert(`Localização atualizada com sucesso para: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                    } else {
+                        alert('Falha ao atualizar a localização no servidor.');
+                    }
+                } catch (error) {
+                    alert('Erro de conexão ao tentar atualizar a localização.');
+                }
+            };
+
+            ui.loginBtn.addEventListener('click', handleLogin);
+            ui.logoutBtn.addEventListener('click', handleLogout);
+            ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
+            ui.updateLocationBtn.addEventListener('click', updateLocation); // LÓGICA RESTAURADA
+            ui.modalCancelBtn.addEventListener('click', closeFinalizeModal);
+            ui.finalizeForm.addEventListener('submit', handleFinalizeSubmit);
+        });
+    </script>
+</body>
+</html>
