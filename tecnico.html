@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UpLine - Portal do Técnico</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -62,6 +60,7 @@
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Ações Rápidas</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <button id="fetch-tickets-btn" class="flex-1 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 transition-colors">Ver Meus Chamados</button>
+                    <button id="update-location-btn" class="flex-1 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Atualizar Localização</button>
                 </div>
             </div>
             <div>
@@ -110,6 +109,7 @@
                 loginBtn: document.getElementById('login-btn'),
                 logoutBtn: document.getElementById('logout-btn'),
                 fetchTicketsBtn: document.getElementById('fetch-tickets-btn'),
+                updateLocationBtn: document.getElementById('update-location-btn'),
                 ticketsContainer: document.getElementById('tickets-container'),
                 ticketsPlaceholder: document.getElementById('tickets-placeholder'),
                 loginError: document.getElementById('login-error'),
@@ -138,7 +138,7 @@
                         ui.techNameDisplay.textContent = state.technicianName;
                         ui.loginScreen.classList.add('hidden');
                         ui.mainScreen.classList.remove('hidden');
-                        startAutomaticLocationUpdates(); // Inicia a localização automática
+                        startAutomaticLocationUpdates();
                     } else {
                         ui.loginError.textContent = data.erro || 'Erro desconhecido.';
                         ui.loginError.classList.remove('hidden');
@@ -150,7 +150,7 @@
             };
 
             const handleLogout = () => {
-                stopAutomaticLocationUpdates(); // Para a localização automática
+                stopAutomaticLocationUpdates();
                 state.technicianId = null;
                 state.technicianName = null;
                 ui.mainScreen.classList.add('hidden');
@@ -160,7 +160,6 @@
                 ui.statusText.textContent = '● Em serviço';
             };
             
-            // --- LÓGICA DE LOCALIZAÇÃO AUTOMÁTICA ---
             const updateLocationOnServer = async (latitude, longitude) => {
                 if (!state.technicianId) return;
                 try {
@@ -186,7 +185,6 @@
                         },
                         (error) => {
                             console.error('Erro ao obter localização:', error.message);
-                            alert('Não foi possível obter a sua localização. Por favor, ative o GPS e autorize o acesso.');
                             ui.statusText.textContent = '● Localização Desativada';
                         }
                     );
@@ -196,9 +194,9 @@
             };
 
             const startAutomaticLocationUpdates = () => {
-                getLocation(); // Obtém a localização imediatamente ao logar
+                getLocation();
                 if (state.locationIntervalId) clearInterval(state.locationIntervalId);
-                state.locationIntervalId = setInterval(getLocation, 120000); // Atualiza a cada 2 minutos
+                state.locationIntervalId = setInterval(getLocation, 120000);
             };
 
             const stopAutomaticLocationUpdates = () => {
@@ -207,7 +205,6 @@
                     state.locationIntervalId = null;
                 }
             };
-            // --- FIM DA LÓGICA DE LOCALIZAÇÃO ---
 
             const renderTickets = (tickets) => {
                 ui.ticketsContainer.innerHTML = '';
@@ -218,8 +215,17 @@
                 tickets.forEach(ticket => {
                     const ticketCard = document.createElement('div');
                     ticketCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 ${ticket.pessoa_presa ? 'card-priority border-red-500' : 'border-sky-500'}`;
-                    const statusClass = ticket.status === 'finalizado' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800';
-                    const actionButtonHtml = ticket.status !== 'finalizado' ? `<button data-ticket-id="${ticket.id_chamado}" class="finalize-btn mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar Chamado</button>` : '';
+                    const statusClass = ticket.status === 'finalizado' ? 'bg-green-200 text-green-800' : (ticket.status === 'atribuido' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800');
+                    
+                    let actionButtonsHtml = '';
+                    if (ticket.status === 'atribuido') {
+                        actionButtonsHtml = `
+                            <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                                <button data-ticket-id="${ticket.id_chamado}" class="reject-btn flex-1 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">Rejeitar</button>
+                                <button data-ticket-id="${ticket.id_chamado}" class="finalize-btn flex-1 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar</button>
+                            </div>`;
+                    }
+
                     let detailsHtml = '';
                     if (ticket.status === 'finalizado') {
                         detailsHtml = `
@@ -241,11 +247,12 @@
                         <div class="mt-4 pt-4 border-t border-slate-200">
                             <p class="mt-2 text-slate-700"><b>Problema:</b> ${ticket.descricao}</p>
                             ${detailsHtml}
-                            ${actionButtonHtml}
+                            ${actionButtonsHtml}
                         </div>`;
                     ui.ticketsContainer.appendChild(ticketCard);
                 });
                 document.querySelectorAll('.finalize-btn').forEach(button => button.addEventListener('click', openFinalizeModal));
+                document.querySelectorAll('.reject-btn').forEach(button => button.addEventListener('click', handleRejectTicket));
             };
 
             const fetchTickets = async () => {
@@ -282,7 +289,6 @@
                     servicos_realizados: document.getElementById('servicos_realizados').value,
                     pecas_trocadas: document.getElementById('pecas_trocadas').value,
                     observacao_texto: document.getElementById('observacao_texto').value,
-                    observacao_audio_url: null
                 };
                 try {
                     const response = await fetch(`${API_URL}/chamado/${ticketToFinalize}/finalizar`, {
@@ -303,10 +309,28 @@
                     button.textContent = 'Confirmar Finalização';
                 }
             };
+            
+            const handleRejectTicket = async (event) => {
+                const ticketId = event.target.dataset.ticketId;
+                if (!confirm(`Tem a certeza que deseja rejeitar o Chamado #${ticketId}?`)) return;
+
+                try {
+                    const response = await fetch(`${API_URL}/chamado/${ticketId}/rejeitar`, { method: 'POST' });
+                    if (response.ok) {
+                        alert('Chamado rejeitado com sucesso!');
+                        fetchTickets();
+                    } else {
+                        alert('Erro ao rejeitar o chamado.');
+                    }
+                } catch (error) {
+                    alert('Erro de conexão ao tentar rejeitar o chamado.');
+                }
+            };
 
             ui.loginBtn.addEventListener('click', handleLogin);
             ui.logoutBtn.addEventListener('click', handleLogout);
             ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
+            ui.updateLocationBtn.addEventListener('click', getLocation);
             ui.modalCancelBtn.addEventListener('click', closeFinalizeModal);
             ui.finalizeForm.addEventListener('submit', handleFinalizeSubmit);
         });
