@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from math import radians, sin, cos, sqrt, atan2
+import datetime
 
 # --- CONFIGURAÇÃO INICIAL ---
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -49,9 +50,16 @@ class Chamado(db.Model):
     descricao_problema = db.Column(db.String(500), nullable=False)
     pessoa_presa = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(50), default='aberto')
-    # CORREÇÃO: A chave estrangeira estava a apontar para 'elevator.id' em vez de 'elevador.id'
     elevador_id = db.Column(db.Integer, db.ForeignKey('elevador.id'), nullable=False)
     tecnico_id = db.Column(db.Integer, db.ForeignKey('tecnico.id'), nullable=True)
+
+    # NOVOS CAMPOS PARA O HISTÓRICO
+    servicos_realizados = db.Column(db.Text, nullable=True)
+    pecas_trocadas = db.Column(db.Text, nullable=True)
+    observacao_texto = db.Column(db.Text, nullable=True)
+    observacao_audio_url = db.Column(db.String(255), nullable=True)
+    data_finalizacao = db.Column(db.DateTime, nullable=True)
+
 
 # --- FUNÇÕES AUXILIARES ---
 def calcular_distancia(lat1, lon1, lat2, lon2):
@@ -83,20 +91,9 @@ def abrir_chamado():
         if not tecnicos_disponiveis:
             return jsonify({'erro': 'Nenhum técnico disponível no momento.'}), 503
 
-        # Lógica mais robusta para encontrar o técnico mais próximo
-        tecnico_mais_proximo = None
-        menor_distancia = float('inf')
-
-        for tecnico in tecnicos_disponiveis:
-            dist = calcular_distancia(elevador.latitude, elevador.longitude, tecnico.last_latitude, tecnico.last_longitude)
-            if dist < menor_distancia:
-                menor_distancia = dist
-                tecnico_mais_proximo = tecnico
+        tecnico_mais_proximo = min(tecnicos_disponiveis, key=lambda t: calcular_distancia(elevador.latitude, elevador.longitude, t.last_latitude, t.last_longitude))
+        menor_distancia = calcular_distancia(elevador.latitude, elevador.longitude, tecnico_mais_proximo.last_latitude, tecnico_mais_proximo.last_longitude)
         
-        # Verificação extra para garantir que um técnico foi encontrado
-        if tecnico_mais_proximo is None:
-             return jsonify({'erro': 'Não foi possível determinar o técnico mais próximo.'}), 500
-
         novo_chamado = Chamado(
             descricao_problema=dados['descricao'],
             pessoa_presa=bool(dados['pessoa_presa']),
@@ -104,7 +101,6 @@ def abrir_chamado():
             tecnico_id=tecnico_mais_proximo.id,
             status='atribuido'
         )
-        
         db.session.add(novo_chamado)
         db.session.commit()
 
@@ -116,9 +112,7 @@ def abrir_chamado():
         }), 201
 
     except Exception as e:
-        # Captura qualquer erro inesperado e o regista nos logs do Render
         app.logger.error(f"Erro inesperado em /chamado/abrir: {e}")
-        # Retorna uma mensagem de erro genérica para o utilizador
         return jsonify({'erro': 'Ocorreu um erro interno no servidor. A equipa foi notificada.'}), 500
 
 
@@ -132,23 +126,8 @@ def tecnico_login():
         return jsonify({'mensagem': 'Login bem-sucedido.', 'tecnico_id': tecnico.id, 'nome': tecnico.nome})
     return jsonify({'erro': 'Credenciais inválidas.'}), 401
 
-@app.route('/tecnico/atualizar_localizacao', methods=['POST'])
-def atualizar_localizacao():
-    dados = request.json
-    if not all(k in dados for k in ['tecnico_id', 'latitude', 'longitude']):
-        return jsonify({'erro': 'Dados incompletos.'}), 400
-    tecnico = Tecnico.query.get(dados['tecnico_id'])
-    if not tecnico:
-        return jsonify({'erro': 'Técnico não encontrado.'}), 404
-    tecnico.last_latitude = dados['latitude']
-    tecnico.last_longitude = dados['longitude']
-    db.session.commit()
-    return jsonify({'mensagem': 'Localização atualizada com sucesso.'})
-
 @app.route('/tecnico/<int:tecnico_id>/chamados', methods=['GET'])
 def get_chamados_tecnico(tecnico_id):
-    # ALTERAÇÃO: Remove o filtro de status para buscar todos os chamados (histórico)
-    # e ordena do mais novo para o mais antigo.
     chamados = Chamado.query.filter_by(tecnico_id=tecnico_id).order_by(Chamado.timestamp.desc()).all()
     lista_chamados = [{
         'id_chamado': c.id,
@@ -156,11 +135,15 @@ def get_chamados_tecnico(tecnico_id):
         'descricao': c.descricao_problema,
         'pessoa_presa': c.pessoa_presa,
         'status': c.status,
-        'cliente': c.elevador.cliente.nome
+        'cliente': c.elevador.cliente.nome,
+        'servicos_realizados': c.servicos_realizados,
+        'pecas_trocadas': c.pecas_trocadas,
+        'observacao_texto': c.observacao_texto,
+        'data_finalizacao': c.data_finalizacao.strftime('%d/%m/%Y %H:%M') if c.data_finalizacao else None
     } for c in chamados]
     return jsonify(lista_chamados)
 
-# NOVA ROTA: Para finalizar um chamado
+# ROTA MODIFICADA: Para finalizar um chamado com detalhes
 @app.route('/chamado/<int:chamado_id>/finalizar', methods=['POST'])
 def finalizar_chamado(chamado_id):
     try:
@@ -168,7 +151,14 @@ def finalizar_chamado(chamado_id):
         if not chamado:
             return jsonify({'erro': 'Chamado não encontrado.'}), 404
 
+        dados = request.json
         chamado.status = 'finalizado'
+        chamado.servicos_realizados = dados.get('servicos_realizados')
+        chamado.pecas_trocadas = dados.get('pecas_trocadas')
+        chamado.observacao_texto = dados.get('observacao_texto')
+        chamado.observacao_audio_url = dados.get('observacao_audio_url') # Simulado
+        chamado.data_finalizacao = datetime.datetime.utcnow()
+        
         db.session.commit()
         
         return jsonify({'mensagem': f'Chamado #{chamado_id} finalizado com sucesso.'})
@@ -176,49 +166,41 @@ def finalizar_chamado(chamado_id):
         app.logger.error(f"Erro ao finalizar chamado #{chamado_id}: {e}")
         return jsonify({'erro': 'Ocorreu um erro interno ao finalizar o chamado.'}), 500
 
-# --- FUNÇÃO PARA INICIALIZAR O BANCO DE DADOS ---
-def criar_dados_iniciais():
-    with app.app_context():
-        print("Criando um novo banco de dados com dados iniciais...")
-        db.drop_all()
-        db.create_all()
-        # Clientes
-        c1 = Cliente(nome='Condomínio Edifício Central', possui_contrato=True)
-        c2 = Cliente(nome='Shopping Plaza Norte', possui_contrato=True)
-        c3 = Cliente(nome='Torre Empresarial Faria Lima', possui_contrato=True)
-        db.session.add_all([c1, c2, c3])
-        # Elevadores
-        e1 = Elevador(codigo_qr='ELEV-001-SP', endereco='Av. Paulista, 1000, São Paulo, SP', latitude=-23.5613, longitude=-46.6565, cliente=c1)
-        e2 = Elevador(codigo_qr='ELEV-002-RJ', endereco='Av. Atlântica, 2000, Rio de Janeiro, RJ', latitude=-22.9697, longitude=-43.1868, cliente=c2)
-        e3 = Elevador(codigo_qr='ELEV-002-SP', endereco='Av. Faria Lima, 4500, São Paulo, SP', latitude=-23.5869, longitude=-46.6823, cliente=c3)
-        db.session.add_all([e1, e2, e3])
-        # Técnicos
-        t1 = Tecnico(nome='Carlos Silva', username='carlos', password='123', de_plantao=True, last_latitude=-23.55, last_longitude=-46.64)
-        t2 = Tecnico(nome='Ana Souza', username='ana', password='123', de_plantao=True, last_latitude=-22.98, last_longitude=-43.20)
-        t3 = Tecnico(nome='João Pereira', username='joao', password='123', de_plantao=False)
-        db.session.add_all([t1, t2, t3])
-        db.session.commit()
-        print("Banco de dados inicializado com dados de exemplo.")
+# NOVA ROTA: Para ver o histórico de um elevador específico
+@app.route('/elevador/<string:codigo_qr>/historico', methods=['GET'])
+def get_historico_elevador(codigo_qr):
+    elevador = Elevador.query.filter_by(codigo_qr=codigo_qr).first()
+    if not elevador:
+        return jsonify({'erro': 'Elevador não encontrado.'}), 404
+
+    chamados = Chamado.query.filter_by(elevador_id=elevador.id, status='finalizado').order_by(Chamado.data_finalizacao.desc()).all()
+    
+    historico = [{
+        'id_chamado': c.id,
+        'data_finalizacao': c.data_finalizacao.strftime('%d/%m/%Y %H:%M') if c.data_finalizacao else None,
+        'tecnico_responsavel': c.tecnico.nome,
+        'descricao_problema': c.descricao_problema,
+        'servicos_realizados': c.servicos_realizados,
+        'pecas_trocadas': c.pecas_trocadas,
+        'observacao_texto': c.observacao_texto
+    } for c in chamados]
+    
+    return jsonify(historico)
+
 
 # --- LÓGICA DE INICIALIZAÇÃO DA APLICAÇÃO ---
-# Esta parte do código será executada quando o Gunicorn importar o 'app.py' no Render.
-# Ele verifica se o ficheiro da base de dados existe e, se não, cria-o.
 with app.app_context():
     db.create_all()
-    # Verifica se a base de dados está vazia para adicionar os dados iniciais.
     if not Tecnico.query.first():
         print("Base de dados vazia. Populando com dados iniciais...")
-        # Clientes
         c1 = Cliente(nome='Condomínio Edifício Central', possui_contrato=True)
         c2 = Cliente(nome='Shopping Plaza Norte', possui_contrato=True)
         c3 = Cliente(nome='Torre Empresarial Faria Lima', possui_contrato=True)
         db.session.add_all([c1, c2, c3])
-        # Elevadores
         e1 = Elevador(codigo_qr='ELEV-001-SP', endereco='Av. Paulista, 1000, São Paulo, SP', latitude=-23.5613, longitude=-46.6565, cliente=c1)
         e2 = Elevador(codigo_qr='ELEV-002-RJ', endereco='Av. Atlântica, 2000, Rio de Janeiro, RJ', latitude=-22.9697, longitude=-43.1868, cliente=c2)
-        e3 = Elevador(codigo_qr='ELEV-002-SP', endereco='Av. Faria Lima, 4500, São Paulo, SP', latitude=-23.5869, longitude=-46.6823, cliente=c3)
+        e3 = Elevador(codigo_qr='ELEV-003-SP', endereco='Av. Faria Lima, 4500, São Paulo, SP', latitude=-23.5869, longitude=-46.6823, cliente=c3)
         db.session.add_all([e1, e2, e3])
-        # Técnicos
         t1 = Tecnico(nome='Carlos Silva', username='carlos', password='123', de_plantao=True, last_latitude=-23.55, last_longitude=-46.64)
         t2 = Tecnico(nome='Ana Souza', username='ana', password='123', de_plantao=True, last_latitude=-22.98, last_longitude=-43.20)
         t3 = Tecnico(nome='João Pereira', username='joao', password='123', de_plantao=False)
@@ -226,7 +208,5 @@ with app.app_context():
         db.session.commit()
         print("Banco de dados inicializado com dados de exemplo.")
 
-
 if __name__ == '__main__':
-    # Para desenvolvimento local, a lógica acima também garante que a BD está pronta.
     app.run(debug=True, host='0.0.0.0')
