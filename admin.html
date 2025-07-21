@@ -366,18 +366,49 @@
             };
 
             const loadChamadosData = async () => {
-                const chamados = await apiRequest('chamados');
+                const [chamados, tecnicos] = await Promise.all([apiRequest('chamados'), apiRequest('tecnicos')]);
                 const tableBody = document.getElementById('chamados-table-body');
                 tableBody.innerHTML = '';
                 chamados.forEach(c => {
                     const row = tableBody.insertRow();
+                    let tecnicoCellHtml = c.tecnico_responsavel;
+                    if (c.status === 'aberto') {
+                        const techOptions = tecnicos.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+                        tecnicoCellHtml = `
+                            <div class="flex items-center gap-2">
+                                <select data-chamado-id="${c.id_chamado}" class="assign-tech-select block w-full border-slate-300 rounded-md text-sm">
+                                    <option value="">Selecione...</option>
+                                    ${techOptions}
+                                </select>
+                                <button data-chamado-id="${c.id_chamado}" class="assign-btn bg-sky-500 text-white px-2 py-1 rounded text-xs hover:bg-sky-600">Atribuir</button>
+                            </div>`;
+                    }
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap">${c.id_chamado}</td>
-                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'finalizado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${c.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'finalizado' ? 'bg-green-100 text-green-800' : (c.status === 'atribuido' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')}">${c.status}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap">${c.endereco}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">${c.tecnico_responsavel}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${tecnicoCellHtml}</td>
                         <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>`;
                 });
+                document.querySelectorAll('.assign-btn').forEach(button => button.addEventListener('click', handleManualAssignment));
+            };
+
+            const handleManualAssignment = async (event) => {
+                const button = event.target;
+                const chamadoId = button.dataset.chamadoId;
+                const select = document.querySelector(`.assign-tech-select[data-chamado-id="${chamadoId}"]`);
+                const tecnicoId = select.value;
+                if (!tecnicoId) {
+                    alert('Por favor, selecione um técnico.');
+                    return;
+                }
+                try {
+                    await apiRequest(`chamado/${chamadoId}/atribuir`, 'POST', { tecnico_id: tecnicoId });
+                    alert('Técnico atribuído com sucesso!');
+                    loadChamadosData();
+                } catch (error) {
+                    alert('Falha ao atribuir técnico.');
+                }
             };
 
             // --- Inicialização e Navegação ---
