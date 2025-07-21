@@ -160,6 +160,7 @@ def get_chamados_tecnico(tecnico_id):
 # --- FUNÇÃO PARA INICIALIZAR O BANCO DE DADOS ---
 def criar_dados_iniciais():
     with app.app_context():
+        print("Criando um novo banco de dados com dados iniciais...")
         db.drop_all()
         db.create_all()
         # Clientes
@@ -180,7 +181,34 @@ def criar_dados_iniciais():
         db.session.commit()
         print("Banco de dados inicializado com dados de exemplo.")
 
+# --- LÓGICA DE INICIALIZAÇÃO DA APLICAÇÃO ---
+# Esta parte do código será executada quando o Gunicorn importar o 'app.py' no Render.
+# Ele verifica se o ficheiro da base de dados existe e, se não, cria-o.
+with app.app_context():
+    db.create_all()
+    # Verifica se a base de dados está vazia para adicionar os dados iniciais.
+    if not Tecnico.query.first():
+        print("Base de dados vazia. Populando com dados iniciais...")
+        # Clientes
+        c1 = Cliente(nome='Condomínio Edifício Central', possui_contrato=True)
+        c2 = Cliente(nome='Shopping Plaza Norte', possui_contrato=True)
+        c3 = Cliente(nome='Torre Empresarial Faria Lima', possui_contrato=True)
+        db.session.add_all([c1, c2, c3])
+        # Elevadores
+        e1 = Elevador(codigo_qr='ELEV-001-SP', endereco='Av. Paulista, 1000, São Paulo, SP', latitude=-23.5613, longitude=-46.6565, cliente=c1)
+        e2 = Elevador(codigo_qr='ELEV-002-RJ', endereco='Av. Atlântica, 2000, Rio de Janeiro, RJ', latitude=-22.9697, longitude=-43.1868, cliente=c2)
+        e3 = Elevador(codigo_qr='ELEV-002-SP', endereco='Av. Faria Lima, 4500, São Paulo, SP', latitude=-23.5869, longitude=-46.6823, cliente=c3)
+        db.session.add_all([e1, e2, e3])
+        # Técnicos
+        t1 = Tecnico(nome='Carlos Silva', username='carlos', password='123', de_plantao=True, last_latitude=-23.55, last_longitude=-46.64)
+        t2 = Tecnico(nome='Ana Souza', username='ana', password='123', de_plantao=True, last_latitude=-22.98, last_longitude=-43.20)
+        t3 = Tecnico(nome='João Pereira', username='joao', password='123', de_plantao=False)
+        db.session.add_all([t1, t2, t3])
+        db.session.commit()
+        print("Banco de dados inicializado com dados de exemplo.")
+
+
 if __name__ == '__main__':
-    if not os.path.exists(os.path.join(basedir, 'upline.db')):
-        criar_dados_iniciais()
+    # Para desenvolvimento local, a lógica acima também garante que a BD está pronta.
     app.run(debug=True, host='0.0.0.0')
+
