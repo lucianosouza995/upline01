@@ -152,14 +152,14 @@
             };
 
             const apiRequest = async (endpoint, method = 'GET', body = null) => {
-                const options = {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                };
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
                 if (body) options.body = JSON.stringify(body);
                 const response = await fetch(`${API_URL}/admin/${endpoint}`, options);
-                if (!response.ok) throw new Error('Falha na requisição à API');
-                return response.json();
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Falha na requisição à API' }));
+                    throw new Error(errorData.message || 'Erro desconhecido');
+                }
+                if (method !== 'DELETE' && response.status !== 204) return response.json();
             };
 
             const closeModal = () => {
@@ -176,12 +176,10 @@
                     e.preventDefault();
                     await submitHandler(new FormData(ui.genericForm));
                 };
-                // Adiciona botão de cancelar
-                const cancelButton = ui.genericForm.querySelector('.cancel-btn');
-                if (cancelButton) cancelButton.onclick = closeModal;
+                ui.genericForm.querySelector('.cancel-btn')?.addEventListener('click', closeModal);
             };
 
-            const renderTable = (data, headers, rowRenderer) => {
+            const renderTable = (data, rowRenderer) => {
                 const tableBody = document.getElementById('data-table-body');
                 if (!tableBody) return;
                 tableBody.innerHTML = '';
@@ -193,29 +191,52 @@
                 });
             };
 
+            const handleDelete = async (id) => {
+                if (!confirm(`Tem a certeza que deseja apagar o item #${id}? Esta ação não pode ser desfeita.`)) return;
+                try {
+                    const singularEndpoint = state.currentSection.slice(0, -1);
+                    await apiRequest(`${singularEndpoint}/${id}`, 'DELETE');
+                    await loadSection(`#${state.currentSection}`);
+                } catch (error) {
+                    alert(`Falha ao apagar o item: ${error.message}`);
+                }
+            };
+            
+            const openEditModal = async (item) => {
+                state.editItemId = item.id;
+                const section = state.currentSection;
+                const handlers = {
+                    'clientes': () => openClienteModal(item),
+                    'elevadores': () => openElevadorModal(item),
+                    'tecnicos': () => openTecnicoModal(item),
+                };
+                if (handlers[section]) await handlers[section]();
+            };
+
             // --- Lógica de Clientes ---
             const loadClientesData = async () => {
                 const clientes = await apiRequest('clientes');
-                renderTable(clientes, ['ID', 'Nome', 'Contrato'], item => `
+                renderTable(clientes, item => `
                     <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.possui_contrato ? 'Sim' : 'Não'}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
-                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
                     </td>`);
-                document.getElementById('add-btn').onclick = () => openAddClienteModal();
+                document.getElementById('add-btn').onclick = () => openClienteModal();
             };
 
-            const openAddClienteModal = () => {
+            const openClienteModal = (item = null) => {
+                const isEditing = item !== null;
                 const formHtml = `
-                    <div><label class="block text-sm">Nome do Cliente</label><input name="nome" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div class="flex items-center"><input name="possui_contrato" type="checkbox" class="h-4 w-4 rounded"><label class="ml-2">Possui Contrato Ativo</label></div>
+                    <div><label class="block text-sm">Nome do Cliente</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="flex items-center"><input name="possui_contrato" type="checkbox" ${isEditing && item.possui_contrato ? 'checked' : ''} class="h-4 w-4 rounded"><label class="ml-2">Possui Contrato Ativo</label></div>
                     <div class="pt-4 flex justify-end gap-4">
                         <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
-                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
                     </div>`;
-                openModal('Adicionar Novo Cliente', formHtml, handleClienteSubmit);
+                openModal(isEditing ? `Editar Cliente #${item.id}` : 'Adicionar Novo Cliente', formHtml, handleClienteSubmit);
             };
             
             const handleClienteSubmit = async (formData) => {
@@ -223,7 +244,9 @@
                     nome: formData.get('nome'),
                     possui_contrato: formData.get('possui_contrato') === 'on',
                 };
-                await apiRequest('clientes', 'POST', data);
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `cliente/${state.editItemId}` : 'clientes';
+                await apiRequest(endpoint, method, data);
                 closeModal();
                 await loadClientesData();
             };
@@ -231,36 +254,39 @@
             // --- Lógica de Elevadores ---
             const loadElevadoresData = async () => {
                 const elevadores = await apiRequest('elevadores');
-                renderTable(elevadores, ['Código QR', 'Endereço', 'Cliente'], item => `
+                renderTable(elevadores, item => `
                     <td class="px-6 py-4 whitespace-nowrap">${item.codigo_qr}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.endereco}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.cliente_nome}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
-                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
                     </td>`);
-                document.getElementById('add-btn').onclick = () => openAddElevadorModal();
+                document.getElementById('add-btn').onclick = () => openElevadorModal();
             };
 
-            const openAddElevadorModal = async () => {
+            const openElevadorModal = async (item = null) => {
+                const isEditing = item !== null;
                 const clientes = await apiRequest('clientes');
-                const options = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+                const options = clientes.map(c => `<option value="${c.id}" ${isEditing && c.id === item.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('');
                 const formHtml = `
-                    <div><label class="block text-sm">Código QR</label><input name="codigo_qr" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div><label class="block text-sm">Endereço</label><input name="endereco" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div><label class="block text-sm">Latitude</label><input name="latitude" type="number" step="any" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div><label class="block text-sm">Longitude</label><input name="longitude" type="number" step="any" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Código QR</label><input name="codigo_qr" type="text" value="${isEditing ? item.codigo_qr : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Endereço</label><input name="endereco" type="text" value="${isEditing ? item.endereco : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Latitude</label><input name="latitude" type="number" step="any" value="${isEditing ? item.latitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Longitude</label><input name="longitude" type="number" step="any" value="${isEditing ? item.longitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
                     <div><label class="block text-sm">Cliente</label><select name="cliente_id" required class="mt-1 block w-full border-slate-300 rounded-md">${options}</select></div>
                     <div class="pt-4 flex justify-end gap-4">
                         <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
-                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
                     </div>`;
-                openModal('Adicionar Novo Elevador', formHtml, handleElevadorSubmit);
+                openModal(isEditing ? `Editar Elevador #${item.id}` : 'Adicionar Novo Elevador', formHtml, handleElevadorSubmit);
             };
 
              const handleElevadorSubmit = async (formData) => {
                 const data = Object.fromEntries(formData.entries());
-                await apiRequest('elevadores', 'POST', data);
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `elevador/${state.editItemId}` : 'elevadores';
+                await apiRequest(endpoint, method, data);
                 closeModal();
                 await loadElevadoresData();
             };
@@ -268,32 +294,41 @@
             // --- Lógica de Técnicos ---
              const loadTecnicosData = async () => {
                 const tecnicos = await apiRequest('tecnicos');
-                renderTable(tecnicos, ['ID', 'Nome', 'Username'], item => `
+                renderTable(tecnicos, item => `
                     <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${item.username}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
-                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
                     </td>`);
-                document.getElementById('add-btn').onclick = () => openAddTecnicoModal();
+                document.getElementById('add-btn').onclick = () => openTecnicoModal();
             };
 
-            const openAddTecnicoModal = () => {
+            const openTecnicoModal = (item = null) => {
+                const isEditing = item !== null;
                 const formHtml = `
-                    <div><label class="block text-sm">Nome Completo</label><input name="nome" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div><label class="block text-sm">Username (para login)</label><input name="username" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
-                    <div><label class="block text-sm">Senha</label><input name="password" type="password" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Nome Completo</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Username (para login)</label><input name="username" type="text" value="${isEditing ? item.username : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Senha ${isEditing ? '(deixar em branco para não alterar)' : ''}</label><input name="password" type="password" ${isEditing ? '' : 'required'} class="mt-1 block w-full border-slate-300 rounded-md"></div>
                     <div class="pt-4 flex justify-end gap-4">
                         <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
-                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
                     </div>`;
-                openModal('Adicionar Novo Técnico', formHtml, handleTecnicoSubmit);
+                openModal(isEditing ? `Editar Técnico #${item.id}` : 'Adicionar Novo Técnico', formHtml, handleTecnicoSubmit);
             };
 
             const handleTecnicoSubmit = async (formData) => {
-                const data = Object.fromEntries(formData.entries());
-                await apiRequest('tecnicos', 'POST', data);
+                const data = {
+                    nome: formData.get('nome'),
+                    username: formData.get('username'),
+                };
+                const password = formData.get('password');
+                if (password) data.password = password;
+                
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `tecnico/${state.editItemId}` : 'tecnicos';
+                await apiRequest(endpoint, method, data);
                 closeModal();
                 await loadTecnicosData();
             };
@@ -302,32 +337,28 @@
             const loadSection = async (hash) => {
                 const section = hash.substring(1) || 'dashboard';
                 state.currentSection = section;
-                pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+                ui.pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
                 document.querySelectorAll('.nav-link').forEach(link => {
                     link.classList.remove('active');
                     if(link.getAttribute('href') === `#${section}`) link.classList.add('active');
                 });
                 const template = document.getElementById(`${section}-template`);
                 if (template) {
-                    contentArea.innerHTML = template.innerHTML;
+                    ui.contentArea.innerHTML = template.innerHTML;
                     const dataLoaders = {
-                        'dashboard': loadDashboardData,
-                        'chamados': loadChamadosData,
-                        'clientes': loadClientesData,
-                        'elevadores': loadElevadoresData,
+                        'dashboard': loadDashboardData, 'chamados': loadChamadosData,
+                        'clientes': loadClientesData, 'elevadores': loadElevadoresData,
                         'tecnicos': loadTecnicosData,
                     };
                     if (dataLoaders[section]) await dataLoaders[section]();
                 } else {
-                    contentArea.innerHTML = `<p>Secção não encontrada.</p>`;
+                    ui.contentArea.innerHTML = `<p>Secção não encontrada.</p>`;
                 }
             };
             
             const loadDashboardData = async () => {
                 const [chamados, tecnicos, elevadores] = await Promise.all([
-                    apiRequest('chamados'),
-                    apiRequest('tecnicos'),
-                    apiRequest('elevadores')
+                    apiRequest('chamados'), apiRequest('tecnicos'), apiRequest('elevadores')
                 ]);
                 document.getElementById('total-chamados').textContent = chamados.length;
                 document.getElementById('total-tecnicos').textContent = tecnicos.length;
@@ -350,7 +381,7 @@
             };
 
             // --- Inicialização e Navegação ---
-            mainNav.addEventListener('click', (e) => {
+            ui.mainNav.addEventListener('click', (e) => {
                 if (e.target.tagName === 'A' && e.target.href) {
                     e.preventDefault();
                     window.location.hash = new URL(e.target.href).hash;
@@ -362,4 +393,4 @@
         });
     </script>
 </body>
-</ht
+</html>
