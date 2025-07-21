@@ -125,6 +125,24 @@ def atualizar_localizacao():
     db.session.commit()
     return jsonify({'mensagem': 'Localização atualizada com sucesso.'})
 
+# ROTA RESTAURADA
+@app.route('/tecnico/<int:tecnico_id>/chamados', methods=['GET'])
+def get_chamados_tecnico(tecnico_id):
+    chamados = Chamado.query.filter_by(tecnico_id=tecnico_id).order_by(Chamado.timestamp.desc()).all()
+    lista_chamados = [{
+        'id_chamado': c.id,
+        'endereco': c.elevador.endereco,
+        'descricao': c.descricao_problema,
+        'pessoa_presa': c.pessoa_presa,
+        'status': c.status,
+        'cliente': c.elevador.cliente.nome,
+        'servicos_realizados': c.servicos_realizados,
+        'pecas_trocadas': c.pecas_trocadas,
+        'observacao_texto': c.observacao_texto,
+        'data_finalizacao': c.data_finalizacao.strftime('%d/%m/%Y %H:%M') if c.data_finalizacao else None
+    } for c in chamados]
+    return jsonify(lista_chamados)
+
 @app.route('/chamado/<int:chamado_id>/finalizar', methods=['POST'])
 def finalizar_chamado(chamado_id):
     chamado = Chamado.query.get_or_404(chamado_id)
