@@ -13,7 +13,9 @@ import datetime
 # --- CONFIGURAÇÃO INICIAL ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
-CORS(app)
+# --- CORREÇÃO DE CORS ---
+# Configuração mais explícita para garantir que os pedidos preflight (OPTIONS) sejam aceites.
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- CONFIGURAÇÃO DA BASE DE DADOS ---
 database_url = os.environ.get('DATABASE_URL')
@@ -71,115 +73,53 @@ class Chamado(db.Model):
 def index():
     return "API da UpLine Elevadores está no ar!"
 
-# ... (código existente para /chamado/abrir, /tecnico/login, etc.) ...
+@app.route('/chamado/abrir', methods=['POST'])
+def abrir_chamado():
+    dados = request.json
+    if not all(k in dados for k in ['codigo_qr', 'pessoa_presa', 'descricao']):
+        return jsonify({'erro': 'Dados incompletos fornecidos.'}), 400
 
-# --- ROTAS DE GESTÃO (ADMIN) ---
+    try:
+        elevador = Elevador.query.filter_by(codigo_qr=dados['codigo_qr']).first()
+        if not elevador:
+            return jsonify({'erro': f"O elevador com o código '{dados['codigo_qr']}' não foi encontrado."}), 404
 
-# --- GESTÃO DE CLIENTES ---
-@app.route('/admin/clientes', methods=['GET', 'POST'])
-def gerir_clientes():
-    if request.method == 'GET':
-        clientes = Cliente.query.order_by(Cliente.id).all()
-        return jsonify([{'id': c.id, 'nome': c.nome, 'possui_contrato': c.possui_contrato} for c in clientes])
-    elif request.method == 'POST':
-        dados = request.json
-        novo_cliente = Cliente(nome=dados['nome'], possui_contrato=dados['possui_contrato'])
-        db.session.add(novo_cliente)
-        db.session.commit()
-        return jsonify({'id': novo_cliente.id, 'nome': novo_cliente.nome}), 201
+        tecnicos_disponiveis = Tecnico.query.filter_by(de_plantao=True).filter(Tecnico.last_latitude.isnot(None)).all()
+        if not tecnicos_disponiveis:
+            return jsonify({'erro': 'Nenhum técnico disponível no momento.'}), 503
 
-@app.route('/admin/cliente/<int:id>', methods=['PUT', 'DELETE'])
-def gerir_cliente_especifico(id):
-    cliente = Cliente.query.get_or_404(id)
-    if request.method == 'PUT':
-        dados = request.json
-        cliente.nome = dados['nome']
-        cliente.possui_contrato = dados['possui_contrato']
-        db.session.commit()
-        return jsonify({'mensagem': 'Cliente atualizado com sucesso.'})
-    elif request.method == 'DELETE':
-        db.session.delete(cliente)
-        db.session.commit()
-        return jsonify({'mensagem': 'Cliente removido com sucesso.'})
-
-# --- GESTÃO DE ELEVADORES ---
-@app.route('/admin/elevadores', methods=['GET', 'POST'])
-def gerir_elevadores():
-    if request.method == 'GET':
-        elevadores = Elevador.query.order_by(Elevador.id).all()
-        return jsonify([{
-            'id': e.id, 'codigo_qr': e.codigo_qr, 'endereco': e.endereco, 
-            'latitude': e.latitude, 'longitude': e.longitude, 'cliente_id': e.cliente_id,
-            'cliente_nome': e.cliente.nome
-        } for e in elevadores])
-    elif request.method == 'POST':
-        dados = request.json
-        novo_elevador = Elevador(
-            codigo_qr=dados['codigo_qr'], endereco=dados['endereco'],
-            latitude=dados['latitude'], longitude=dados['longitude'],
-            cliente_id=dados['cliente_id']
+        tecnico_mais_proximo = min(tecnicos_disponiveis, key=lambda t: calcular_distancia(elevador.latitude, elevador.longitude, t.last_latitude, t.last_longitude))
+        menor_distancia = calcular_distancia(elevador.latitude, elevador.longitude, tecnico_mais_proximo.last_latitude, tecnico_mais_proximo.last_longitude)
+        
+        novo_chamado = Chamado(
+            descricao_problema=dados['descricao'],
+            pessoa_presa=bool(dados['pessoa_presa']),
+            elevador_id=elevador.id,
+            tecnico_id=tecnico_mais_proximo.id,
+            status='atribuido'
         )
-        db.session.add(novo_elevador)
+        db.session.add(novo_chamado)
         db.session.commit()
-        return jsonify({'id': novo_elevador.id, 'codigo_qr': novo_elevador.codigo_qr}), 201
 
-@app.route('/admin/elevador/<int:id>', methods=['PUT', 'DELETE'])
-def gerir_elevador_especifico(id):
-    elevador = Elevador.query.get_or_404(id)
-    if request.method == 'PUT':
-        dados = request.json
-        elevador.codigo_qr = dados['codigo_qr']
-        elevador.endereco = dados['endereco']
-        elevador.latitude = float(dados['latitude'])
-        elevador.longitude = float(dados['longitude'])
-        elevador.cliente_id = int(dados['cliente_id'])
-        db.session.commit()
-        return jsonify({'mensagem': 'Elevador atualizado com sucesso.'})
-    elif request.method == 'DELETE':
-        db.session.delete(elevador)
-        db.session.commit()
-        return jsonify({'mensagem': 'Elevador removido com sucesso.'})
+        return jsonify({
+            'mensagem': 'Chamado aberto com sucesso!',
+            'id_chamado': novo_chamado.id,
+            'tecnico_atribuido': tecnico_mais_proximo.nome,
+            'distancia_km': round(menor_distancia, 2)
+        }), 201
 
-# --- GESTÃO DE TÉCNICOS ---
-@app.route('/admin/tecnicos', methods=['GET', 'POST'])
-def gerir_tecnicos():
-    if request.method == 'GET':
-        tecnicos = Tecnico.query.order_by(Tecnico.id).all()
-        return jsonify([{'id': t.id, 'nome': t.nome, 'username': t.username} for t in tecnicos])
-    elif request.method == 'POST':
-        dados = request.json
-        novo_tecnico = Tecnico(nome=dados['nome'], username=dados['username'], password=dados['password'])
-        db.session.add(novo_tecnico)
-        db.session.commit()
-        return jsonify({'id': novo_tecnico.id, 'nome': novo_tecnico.nome}), 201
+    except Exception as e:
+        app.logger.error(f"Erro inesperado em /chamado/abrir: {e}")
+        return jsonify({'erro': 'Ocorreu um erro interno no servidor. A equipa foi notificada.'}), 500
 
-@app.route('/admin/tecnico/<int:id>', methods=['PUT', 'DELETE'])
-def gerir_tecnico_especifico(id):
-    tecnico = Tecnico.query.get_or_404(id)
-    if request.method == 'PUT':
-        dados = request.json
-        tecnico.nome = dados['nome']
-        tecnico.username = dados['username']
-        if dados.get('password'):
-            tecnico.password = dados['password']
+@app.route('/tecnico/login', methods=['POST'])
+def tecnico_login():
+    dados = request.json
+    tecnico = Tecnico.query.filter_by(username=dados.get('username')).first()
+    if tecnico and tecnico.password == dados.get('password'):
+        tecnico.de_plantao = True
         db.session.commit()
-        return jsonify({'mensagem': 'Técnico atualizado com sucesso.'})
-    elif request.method == 'DELETE':
-        db.session.delete(tecnico)
-        db.session.commit()
-        return jsonify({'mensagem': 'Técnico removido com sucesso.'})
-
-# --- VISUALIZAÇÃO DE CHAMADOS ---
-@app.route('/admin/chamados', methods=['GET'])
-def get_todos_chamados():
-    chamados = Chamado.query.order_by(Chamado.timestamp.desc()).all()
-    lista_chamados = [{
-        'id_chamado': c.id, 'status': c.status,
-        'endereco': c.elevador.endereco,
-        'tecnico_responsavel': c.tecnico.nome if c.tecnico else 'N/A',
-        'data_abertura': c.timestamp.strftime('%d/%m/%Y %H:%M'),
-        'data_finalizacao': c.data_finalizacao.strftime('%d/%m/%Y %H:%M') if c.data_finalizacao else None
-    } for c in chamados]
-    return jsonify(lista_chamados)
-
-# ... (código de inicialização da app) ...
+        return jsonify({'mensagem': 'Login bem-sucedido.', 'tecnico_id': tecnico.id, 'nome': tecnico.nome})
+    return jsonify({'erro': 'Credenciais inválidas.'}), 401
+    
+# ... (restante do código do backend) ...
