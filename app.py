@@ -71,25 +71,15 @@ class Chamado(db.Model):
 def index():
     return "API da UpLine Elevadores está no ar!"
 
-@app.route('/chamado/abrir', methods=['POST'])
-# ... (código existente) ...
+# ... (código existente para /chamado/abrir, /tecnico/login, etc.) ...
 
-@app.route('/tecnico/login', methods=['POST'])
-# ... (código existente) ...
-
-@app.route('/tecnico/<int:tecnico_id>/chamados', methods=['GET'])
-# ... (código existente) ...
-
-@app.route('/chamado/<int:chamado_id>/finalizar', methods=['POST'])
-# ... (código existente) ...
-
-# --- NOVAS ROTAS DE GESTÃO (ADMIN) ---
+# --- ROTAS DE GESTÃO (ADMIN) ---
 
 # --- GESTÃO DE CLIENTES ---
 @app.route('/admin/clientes', methods=['GET', 'POST'])
 def gerir_clientes():
     if request.method == 'GET':
-        clientes = Cliente.query.all()
+        clientes = Cliente.query.order_by(Cliente.id).all()
         return jsonify([{'id': c.id, 'nome': c.nome, 'possui_contrato': c.possui_contrato} for c in clientes])
     elif request.method == 'POST':
         dados = request.json
@@ -116,7 +106,7 @@ def gerir_cliente_especifico(id):
 @app.route('/admin/elevadores', methods=['GET', 'POST'])
 def gerir_elevadores():
     if request.method == 'GET':
-        elevadores = Elevador.query.all()
+        elevadores = Elevador.query.order_by(Elevador.id).all()
         return jsonify([{
             'id': e.id, 'codigo_qr': e.codigo_qr, 'endereco': e.endereco, 
             'latitude': e.latitude, 'longitude': e.longitude, 'cliente_id': e.cliente_id,
@@ -133,27 +123,58 @@ def gerir_elevadores():
         db.session.commit()
         return jsonify({'id': novo_elevador.id, 'codigo_qr': novo_elevador.codigo_qr}), 201
 
+@app.route('/admin/elevador/<int:id>', methods=['PUT', 'DELETE'])
+def gerir_elevador_especifico(id):
+    elevador = Elevador.query.get_or_404(id)
+    if request.method == 'PUT':
+        dados = request.json
+        elevador.codigo_qr = dados['codigo_qr']
+        elevador.endereco = dados['endereco']
+        elevador.latitude = float(dados['latitude'])
+        elevador.longitude = float(dados['longitude'])
+        elevador.cliente_id = int(dados['cliente_id'])
+        db.session.commit()
+        return jsonify({'mensagem': 'Elevador atualizado com sucesso.'})
+    elif request.method == 'DELETE':
+        db.session.delete(elevador)
+        db.session.commit()
+        return jsonify({'mensagem': 'Elevador removido com sucesso.'})
+
 # --- GESTÃO DE TÉCNICOS ---
 @app.route('/admin/tecnicos', methods=['GET', 'POST'])
 def gerir_tecnicos():
     if request.method == 'GET':
-        tecnicos = Tecnico.query.all()
+        tecnicos = Tecnico.query.order_by(Tecnico.id).all()
         return jsonify([{'id': t.id, 'nome': t.nome, 'username': t.username} for t in tecnicos])
     elif request.method == 'POST':
         dados = request.json
-        # NOTA: Em produção, a senha deve ser "hasheada"
         novo_tecnico = Tecnico(nome=dados['nome'], username=dados['username'], password=dados['password'])
         db.session.add(novo_tecnico)
         db.session.commit()
         return jsonify({'id': novo_tecnico.id, 'nome': novo_tecnico.nome}), 201
+
+@app.route('/admin/tecnico/<int:id>', methods=['PUT', 'DELETE'])
+def gerir_tecnico_especifico(id):
+    tecnico = Tecnico.query.get_or_404(id)
+    if request.method == 'PUT':
+        dados = request.json
+        tecnico.nome = dados['nome']
+        tecnico.username = dados['username']
+        if dados.get('password'):
+            tecnico.password = dados['password']
+        db.session.commit()
+        return jsonify({'mensagem': 'Técnico atualizado com sucesso.'})
+    elif request.method == 'DELETE':
+        db.session.delete(tecnico)
+        db.session.commit()
+        return jsonify({'mensagem': 'Técnico removido com sucesso.'})
 
 # --- VISUALIZAÇÃO DE CHAMADOS ---
 @app.route('/admin/chamados', methods=['GET'])
 def get_todos_chamados():
     chamados = Chamado.query.order_by(Chamado.timestamp.desc()).all()
     lista_chamados = [{
-        'id_chamado': c.id,
-        'status': c.status,
+        'id_chamado': c.id, 'status': c.status,
         'endereco': c.elevador.endereco,
         'tecnico_responsavel': c.tecnico.nome if c.tecnico else 'N/A',
         'data_abertura': c.timestamp.strftime('%d/%m/%Y %H:%M'),
@@ -161,12 +182,4 @@ def get_todos_chamados():
     } for c in chamados]
     return jsonify(lista_chamados)
 
-# --- LÓGICA DE INICIALIZAÇÃO DA APLICAÇÃO ---
-with app.app_context():
-    db.create_all()
-    if not Cliente.query.first():
-        print("Base de dados vazia. Populando com dados iniciais...")
-        # ... (código para popular a base de dados) ...
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+# ... (código de inicialização da app) ...
