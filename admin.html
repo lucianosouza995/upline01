@@ -51,12 +51,12 @@
                 <p id="total-chamados" class="text-3xl font-bold">0</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-slate-500">Técnicos Ativos</h3>
+                <h3 class="text-slate-500">Total de Técnicos</h3>
                 <p id="total-tecnicos" class="text-3xl font-bold">0</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-slate-500">Clientes com Contrato</h3>
-                <p id="total-clientes" class="text-3xl font-bold">0</p>
+                <h3 class="text-slate-500">Total de Elevadores</h3>
+                <p id="total-elevadores" class="text-3xl font-bold">0</p>
             </div>
         </div>
     </template>
@@ -80,21 +80,54 @@
 
     <template id="clientes-template">
         <div class="bg-white p-6 rounded-lg shadow">
-            <button id="add-cliente-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Cliente</button>
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Cliente</button>
             <div class="table-responsive">
                 <table class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50"><tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Contrato Ativo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
                     </tr></thead>
-                    <tbody id="clientes-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
                 </table>
             </div>
         </div>
     </template>
     
-    <!-- Outros templates (elevadores, tecnicos) seguem um padrão similar -->
+    <template id="elevadores-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Elevador</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Código QR</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Endereço</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Cliente</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
+                    </tr></thead>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="tecnicos-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Técnico</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Username</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
+                    </tr></thead>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
 
     <!-- Modal Genérico para Forms -->
     <div id="form-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4 modal">
@@ -106,50 +139,203 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const API_URL = 'https://upline01.onrender.com'; // URL do seu backend
-            const mainNav = document.getElementById('main-nav');
-            const contentArea = document.getElementById('content-area');
-            const pageTitle = document.getElementById('page-title');
+            const API_URL = 'https://upline01.onrender.com';
+            const state = { currentSection: '', editItemId: null };
 
+            const ui = {
+                mainNav: document.getElementById('main-nav'),
+                contentArea: document.getElementById('content-area'),
+                pageTitle: document.getElementById('page-title'),
+                formModal: document.getElementById('form-modal'),
+                formModalTitle: document.getElementById('form-modal-title'),
+                genericForm: document.getElementById('generic-form'),
+            };
+
+            const apiRequest = async (endpoint, method = 'GET', body = null) => {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                };
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(`${API_URL}/admin/${endpoint}`, options);
+                if (!response.ok) throw new Error('Falha na requisição à API');
+                return response.json();
+            };
+
+            const closeModal = () => {
+                ui.formModal.classList.add('hidden');
+                ui.genericForm.innerHTML = '';
+                state.editItemId = null;
+            };
+
+            const openModal = (title, formHtml, submitHandler) => {
+                ui.formModalTitle.textContent = title;
+                ui.genericForm.innerHTML = formHtml;
+                ui.formModal.classList.remove('hidden');
+                ui.genericForm.onsubmit = async (e) => {
+                    e.preventDefault();
+                    await submitHandler(new FormData(ui.genericForm));
+                };
+                // Adiciona botão de cancelar
+                const cancelButton = ui.genericForm.querySelector('.cancel-btn');
+                if (cancelButton) cancelButton.onclick = closeModal;
+            };
+
+            const renderTable = (data, headers, rowRenderer) => {
+                const tableBody = document.getElementById('data-table-body');
+                if (!tableBody) return;
+                tableBody.innerHTML = '';
+                data.forEach(item => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = rowRenderer(item);
+                    row.querySelector('.edit-btn')?.addEventListener('click', () => openEditModal(item));
+                    row.querySelector('.delete-btn')?.addEventListener('click', () => handleDelete(item.id));
+                });
+            };
+
+            // --- Lógica de Clientes ---
+            const loadClientesData = async () => {
+                const clientes = await apiRequest('clientes');
+                renderTable(clientes, ['ID', 'Nome', 'Contrato'], item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.possui_contrato ? 'Sim' : 'Não'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openAddClienteModal();
+            };
+
+            const openAddClienteModal = () => {
+                const formHtml = `
+                    <div><label class="block text-sm">Nome do Cliente</label><input name="nome" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="flex items-center"><input name="possui_contrato" type="checkbox" class="h-4 w-4 rounded"><label class="ml-2">Possui Contrato Ativo</label></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                    </div>`;
+                openModal('Adicionar Novo Cliente', formHtml, handleClienteSubmit);
+            };
+            
+            const handleClienteSubmit = async (formData) => {
+                const data = {
+                    nome: formData.get('nome'),
+                    possui_contrato: formData.get('possui_contrato') === 'on',
+                };
+                await apiRequest('clientes', 'POST', data);
+                closeModal();
+                await loadClientesData();
+            };
+            
+            // --- Lógica de Elevadores ---
+            const loadElevadoresData = async () => {
+                const elevadores = await apiRequest('elevadores');
+                renderTable(elevadores, ['Código QR', 'Endereço', 'Cliente'], item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.codigo_qr}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.endereco}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.cliente_nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openAddElevadorModal();
+            };
+
+            const openAddElevadorModal = async () => {
+                const clientes = await apiRequest('clientes');
+                const options = clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+                const formHtml = `
+                    <div><label class="block text-sm">Código QR</label><input name="codigo_qr" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Endereço</label><input name="endereco" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Latitude</label><input name="latitude" type="number" step="any" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Longitude</label><input name="longitude" type="number" step="any" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Cliente</label><select name="cliente_id" required class="mt-1 block w-full border-slate-300 rounded-md">${options}</select></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                    </div>`;
+                openModal('Adicionar Novo Elevador', formHtml, handleElevadorSubmit);
+            };
+
+             const handleElevadorSubmit = async (formData) => {
+                const data = Object.fromEntries(formData.entries());
+                await apiRequest('elevadores', 'POST', data);
+                closeModal();
+                await loadElevadoresData();
+            };
+
+            // --- Lógica de Técnicos ---
+             const loadTecnicosData = async () => {
+                const tecnicos = await apiRequest('tecnicos');
+                renderTable(tecnicos, ['ID', 'Nome', 'Username'], item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button data-id="${item.id}" class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openAddTecnicoModal();
+            };
+
+            const openAddTecnicoModal = () => {
+                const formHtml = `
+                    <div><label class="block text-sm">Nome Completo</label><input name="nome" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Username (para login)</label><input name="username" type="text" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Senha</label><input name="password" type="password" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Guardar</button>
+                    </div>`;
+                openModal('Adicionar Novo Técnico', formHtml, handleTecnicoSubmit);
+            };
+
+            const handleTecnicoSubmit = async (formData) => {
+                const data = Object.fromEntries(formData.entries());
+                await apiRequest('tecnicos', 'POST', data);
+                closeModal();
+                await loadTecnicosData();
+            };
+            
+            // --- Funções de Carregamento Genéricas ---
             const loadSection = async (hash) => {
                 const section = hash.substring(1) || 'dashboard';
+                state.currentSection = section;
                 pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
-                
                 document.querySelectorAll('.nav-link').forEach(link => {
                     link.classList.remove('active');
-                    if(link.getAttribute('href') === hash) link.classList.add('active');
+                    if(link.getAttribute('href') === `#${section}`) link.classList.add('active');
                 });
-
                 const template = document.getElementById(`${section}-template`);
                 if (template) {
                     contentArea.innerHTML = template.innerHTML;
-                    // Chamar a função para popular os dados da secção
-                    switch(section) {
-                        case 'dashboard': await loadDashboardData(); break;
-                        case 'chamados': await loadChamadosData(); break;
-                        case 'clientes': await loadClientesData(); break;
-                        // Adicionar casos para elevadores e tecnicos
-                    }
+                    const dataLoaders = {
+                        'dashboard': loadDashboardData,
+                        'chamados': loadChamadosData,
+                        'clientes': loadClientesData,
+                        'elevadores': loadElevadoresData,
+                        'tecnicos': loadTecnicosData,
+                    };
+                    if (dataLoaders[section]) await dataLoaders[section]();
                 } else {
                     contentArea.innerHTML = `<p>Secção não encontrada.</p>`;
                 }
             };
             
             const loadDashboardData = async () => {
-                // Simulação - em um app real, teríamos endpoints específicos para estas contagens
-                const [chamados, tecnicos, clientes] = await Promise.all([
-                    fetch(`${API_URL}/admin/chamados`).then(res => res.json()),
-                    fetch(`${API_URL}/admin/tecnicos`).then(res => res.json()),
-                    fetch(`${API_URL}/admin/clientes`).then(res => res.json())
+                const [chamados, tecnicos, elevadores] = await Promise.all([
+                    apiRequest('chamados'),
+                    apiRequest('tecnicos'),
+                    apiRequest('elevadores')
                 ]);
                 document.getElementById('total-chamados').textContent = chamados.length;
                 document.getElementById('total-tecnicos').textContent = tecnicos.length;
-                document.getElementById('total-clientes').textContent = clientes.filter(c => c.possui_contrato).length;
+                document.getElementById('total-elevadores').textContent = elevadores.length;
             };
 
             const loadChamadosData = async () => {
-                const response = await fetch(`${API_URL}/admin/chamados`);
-                const chamados = await response.json();
+                const chamados = await apiRequest('chamados');
                 const tableBody = document.getElementById('chamados-table-body');
                 tableBody.innerHTML = '';
                 chamados.forEach(c => {
@@ -159,32 +345,15 @@
                         <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'finalizado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${c.status}</span></td>
                         <td class="px-6 py-4 whitespace-nowrap">${c.endereco}</td>
                         <td class="px-6 py-4 whitespace-nowrap">${c.tecnico_responsavel}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>
-                    `;
+                        <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>`;
                 });
             };
 
-            const loadClientesData = async () => {
-                const response = await fetch(`${API_URL}/admin/clientes`);
-                const clientes = await response.json();
-                const tableBody = document.getElementById('clientes-table-body');
-                tableBody.innerHTML = '';
-                clientes.forEach(c => {
-                    const row = tableBody.insertRow();
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap">${c.id}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">${c.nome}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">${c.possui_contrato ? 'Sim' : 'Não'}</td>
-                    `;
-                });
-                // Adicionar lógica para o botão "Adicionar Cliente"
-            };
-
+            // --- Inicialização e Navegação ---
             mainNav.addEventListener('click', (e) => {
-                if (e.target.tagName === 'A') {
+                if (e.target.tagName === 'A' && e.target.href) {
                     e.preventDefault();
-                    const hash = new URL(e.target.href).hash;
-                    window.location.hash = hash;
+                    window.location.hash = new URL(e.target.href).hash;
                 }
             });
 
@@ -193,4 +362,4 @@
         });
     </script>
 </body>
-</html>
+</ht
