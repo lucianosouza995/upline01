@@ -51,7 +51,7 @@
                     <span class="w-10 h-10 bg-sky-600 text-white flex items-center justify-center rounded-lg text-xl font-bold">U</span>
                     <div class="ml-3">
                         <h1 id="tech-name" class="text-xl font-bold text-slate-800"></h1>
-                        <p class="text-sm text-green-600 font-semibold">● Em serviço</p>
+                        <p id="status-text" class="text-sm text-green-600 font-semibold">● Em serviço</p>
                     </div>
                 </div>
                 <button id="logout-btn" class="bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-300 transition-colors">Sair</button>
@@ -62,8 +62,6 @@
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Ações Rápidas</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <button id="fetch-tickets-btn" class="flex-1 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 transition-colors">Ver Meus Chamados</button>
-                    <!-- BOTÃO RESTAURADO -->
-                    <button id="update-location-btn" class="flex-1 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Atualizar Localização (Simulação)</button>
                 </div>
             </div>
             <div>
@@ -103,7 +101,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const API_URL = 'https://upline01.onrender.com';
-            const state = { technicianId: null, technicianName: null };
+            const state = { technicianId: null, technicianName: null, locationIntervalId: null };
             let ticketToFinalize = null;
 
             const ui = {
@@ -112,11 +110,11 @@
                 loginBtn: document.getElementById('login-btn'),
                 logoutBtn: document.getElementById('logout-btn'),
                 fetchTicketsBtn: document.getElementById('fetch-tickets-btn'),
-                updateLocationBtn: document.getElementById('update-location-btn'), // LÓGICA RESTAURADA
                 ticketsContainer: document.getElementById('tickets-container'),
                 ticketsPlaceholder: document.getElementById('tickets-placeholder'),
                 loginError: document.getElementById('login-error'),
                 techNameDisplay: document.getElementById('tech-name'),
+                statusText: document.getElementById('status-text'),
                 finalizeModal: document.getElementById('finalize-modal'),
                 modalTitle: document.getElementById('modal-title'),
                 finalizeForm: document.getElementById('finalize-form'),
@@ -140,6 +138,7 @@
                         ui.techNameDisplay.textContent = state.technicianName;
                         ui.loginScreen.classList.add('hidden');
                         ui.mainScreen.classList.remove('hidden');
+                        startAutomaticLocationUpdates(); // Inicia a localização automática
                     } else {
                         ui.loginError.textContent = data.erro || 'Erro desconhecido.';
                         ui.loginError.classList.remove('hidden');
@@ -151,13 +150,64 @@
             };
 
             const handleLogout = () => {
+                stopAutomaticLocationUpdates(); // Para a localização automática
                 state.technicianId = null;
                 state.technicianName = null;
                 ui.mainScreen.classList.add('hidden');
                 ui.loginScreen.classList.remove('hidden');
                 ui.ticketsContainer.innerHTML = '';
                 ui.ticketsContainer.appendChild(ui.ticketsPlaceholder);
+                ui.statusText.textContent = '● Em serviço';
             };
+            
+            // --- LÓGICA DE LOCALIZAÇÃO AUTOMÁTICA ---
+            const updateLocationOnServer = async (latitude, longitude) => {
+                if (!state.technicianId) return;
+                try {
+                    await fetch(`${API_URL}/tecnico/atualizar_localizacao`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tecnico_id: state.technicianId, latitude, longitude })
+                    });
+                    console.log(`Localização enviada: ${latitude}, ${longitude}`);
+                    ui.statusText.textContent = '● Localização Ativa';
+                } catch (error) {
+                    console.error('Falha ao enviar localização para o servidor.');
+                    ui.statusText.textContent = '● Erro de Localização';
+                }
+            };
+
+            const getLocation = () => {
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const { latitude, longitude } = position.coords;
+                            updateLocationOnServer(latitude, longitude);
+                        },
+                        (error) => {
+                            console.error('Erro ao obter localização:', error.message);
+                            alert('Não foi possível obter a sua localização. Por favor, ative o GPS e autorize o acesso.');
+                            ui.statusText.textContent = '● Localização Desativada';
+                        }
+                    );
+                } else {
+                    alert('Geolocalização não é suportada neste navegador.');
+                }
+            };
+
+            const startAutomaticLocationUpdates = () => {
+                getLocation(); // Obtém a localização imediatamente ao logar
+                if (state.locationIntervalId) clearInterval(state.locationIntervalId);
+                state.locationIntervalId = setInterval(getLocation, 120000); // Atualiza a cada 2 minutos
+            };
+
+            const stopAutomaticLocationUpdates = () => {
+                if (state.locationIntervalId) {
+                    clearInterval(state.locationIntervalId);
+                    state.locationIntervalId = null;
+                }
+            };
+            // --- FIM DA LÓGICA DE LOCALIZAÇÃO ---
 
             const renderTickets = (tickets) => {
                 ui.ticketsContainer.innerHTML = '';
@@ -168,10 +218,8 @@
                 tickets.forEach(ticket => {
                     const ticketCard = document.createElement('div');
                     ticketCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 ${ticket.pessoa_presa ? 'card-priority border-red-500' : 'border-sky-500'}`;
-                    
                     const statusClass = ticket.status === 'finalizado' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800';
                     const actionButtonHtml = ticket.status !== 'finalizado' ? `<button data-ticket-id="${ticket.id_chamado}" class="finalize-btn mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar Chamado</button>` : '';
-
                     let detailsHtml = '';
                     if (ticket.status === 'finalizado') {
                         detailsHtml = `
@@ -180,10 +228,8 @@
                                 <p><strong>Peças:</strong> ${ticket.pecas_trocadas || 'Nenhuma'}</p>
                                 <p><strong>Obs:</strong> ${ticket.observacao_texto || 'Nenhuma'}</p>
                                 <p><strong>Finalizado em:</strong> ${ticket.data_finalizacao}</p>
-                            </div>
-                        `;
+                            </div>`;
                     }
-
                     ticketCard.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div>
@@ -199,7 +245,6 @@
                         </div>`;
                     ui.ticketsContainer.appendChild(ticketCard);
                 });
-
                 document.querySelectorAll('.finalize-btn').forEach(button => button.addEventListener('click', openFinalizeModal));
             };
 
@@ -230,18 +275,15 @@
             const handleFinalizeSubmit = async (event) => {
                 event.preventDefault();
                 if (!ticketToFinalize) return;
-
                 const button = event.target.querySelector('button[type="submit"]');
                 button.disabled = true;
                 button.textContent = 'A finalizar...';
-
                 const payload = {
                     servicos_realizados: document.getElementById('servicos_realizados').value,
                     pecas_trocadas: document.getElementById('pecas_trocadas').value,
                     observacao_texto: document.getElementById('observacao_texto').value,
-                    observacao_audio_url: null // Simulado
+                    observacao_audio_url: null
                 };
-
                 try {
                     const response = await fetch(`${API_URL}/chamado/${ticketToFinalize}/finalizar`, {
                         method: 'POST',
@@ -250,7 +292,7 @@
                     });
                     if (response.ok) {
                         closeFinalizeModal();
-                        fetchTickets(); // Recarrega a lista para mostrar o status atualizado
+                        fetchTickets();
                     } else {
                         alert('Erro ao finalizar o chamado.');
                     }
@@ -261,32 +303,10 @@
                     button.textContent = 'Confirmar Finalização';
                 }
             };
-            
-            // LÓGICA RESTAURADA
-            const updateLocation = async () => {
-                if (!state.technicianId) return;
-                const lat = -23.55 + (Math.random() - 0.5) * 0.1;
-                const lon = -46.63 + (Math.random() - 0.5) * 0.1;
-                try {
-                    const response = await fetch(`${API_URL}/tecnico/atualizar_localizacao`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tecnico_id: state.technicianId, latitude: lat, longitude: lon })
-                    });
-                    if(response.ok) {
-                        alert(`Localização atualizada com sucesso para: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-                    } else {
-                        alert('Falha ao atualizar a localização no servidor.');
-                    }
-                } catch (error) {
-                    alert('Erro de conexão ao tentar atualizar a localização.');
-                }
-            };
 
             ui.loginBtn.addEventListener('click', handleLogin);
             ui.logoutBtn.addEventListener('click', handleLogout);
             ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
-            ui.updateLocationBtn.addEventListener('click', updateLocation); // LÓGICA RESTAURADA
             ui.modalCancelBtn.addEventListener('click', closeFinalizeModal);
             ui.finalizeForm.addEventListener('submit', handleFinalizeSubmit);
         });
