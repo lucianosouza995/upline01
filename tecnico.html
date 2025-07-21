@@ -9,17 +9,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .card-priority {
-            border-left: 5px solid #dc2626; /* red-600 */
-            animation: pulse-border 2s infinite;
-        }
-        @keyframes pulse-border {
-            0%, 100% { border-left-color: #dc2626; }
-            50% { border-left-color: #f87171; }
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .card-priority { border-left: 5px solid #dc2626; animation: pulse-border 2s infinite; }
+        @keyframes pulse-border { 0%, 100% { border-left-color: #dc2626; } 50% { border-left-color: #f87171; } }
+        .modal { transition: opacity 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-100">
@@ -35,28 +28,24 @@
             </div>
             <h2 class="text-center text-2xl font-semibold text-slate-700 mb-1">Portal do Técnico</h2>
             <p class="text-center text-slate-500 mb-8">Faça login para iniciar o seu turno.</p>
-            
             <div class="space-y-4">
                 <div>
                     <label for="username" class="block text-sm font-medium text-slate-600">Utilizador</label>
-                    <input type="text" id="username" value="carlos" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                    <input type="text" id="username" value="carlos" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-slate-600">Senha</label>
-                    <input type="password" id="password" value="123" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                    <input type="password" id="password" value="123" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
                 </div>
             </div>
-
-            <button id="login-btn" class="mt-8 w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors">
-                Entrar
-            </button>
+            <button id="login-btn" class="mt-8 w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors">Entrar</button>
             <div id="login-error" class="mt-4 text-center text-red-600 font-medium hidden"></div>
         </div>
     </div>
 
     <!-- Tela Principal -->
     <div id="main-screen" class="hidden">
-        <header class="bg-white shadow-md sticky top-0 z-10">
+        <header class="bg-white shadow-md sticky top-0 z-20">
             <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
                 <div class="flex items-center">
                     <span class="w-10 h-10 bg-sky-600 text-white flex items-center justify-center rounded-lg text-xl font-bold">U</span>
@@ -68,16 +57,13 @@
                 <button id="logout-btn" class="bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-300 transition-colors">Sair</button>
             </div>
         </header>
-
         <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <div class="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Ações Rápidas</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <button id="fetch-tickets-btn" class="flex-1 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 transition-colors">Ver Meus Chamados</button>
-                    <button id="update-location-btn" class="flex-1 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Atualizar Localização (Simulação)</button>
                 </div>
             </div>
-
             <div>
                 <h2 class="text-2xl font-bold text-slate-800 mb-4">Meus Chamados (Histórico)</h2>
                 <div id="tickets-container" class="space-y-4">
@@ -87,14 +73,28 @@
         </main>
     </div>
 
-    <!-- Modal de Confirmação -->
-    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
-            <p id="modal-text" class="mb-4 text-lg">Tem a certeza?</p>
-            <div class="flex justify-center gap-4">
-                <button id="modal-cancel-btn" class="bg-slate-300 px-6 py-2 rounded-lg hover:bg-slate-400">Cancelar</button>
-                <button id="modal-confirm-btn" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">Sim, finalizar</button>
-            </div>
+    <!-- Modal de Finalização de Chamado -->
+    <div id="finalize-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4 modal">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg max-h-full overflow-y-auto">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4">Finalizar Chamado #</h3>
+            <form id="finalize-form" class="space-y-4">
+                <div>
+                    <label for="servicos_realizados" class="block text-sm font-medium text-slate-700">Serviços Realizados</label>
+                    <textarea id="servicos_realizados" rows="3" class="mt-1 w-full border-slate-300 rounded-md shadow-sm" required></textarea>
+                </div>
+                <div>
+                    <label for="pecas_trocadas" class="block text-sm font-medium text-slate-700">Peças Trocadas (se houver)</label>
+                    <textarea id="pecas_trocadas" rows="2" class="mt-1 w-full border-slate-300 rounded-md shadow-sm"></textarea>
+                </div>
+                <div>
+                    <label for="observacao_texto" class="block text-sm font-medium text-slate-700">Observações Adicionais</label>
+                    <textarea id="observacao_texto" rows="3" class="mt-1 w-full border-slate-300 rounded-md shadow-sm"></textarea>
+                </div>
+                <div class="pt-4 flex justify-end gap-4">
+                    <button type="button" id="modal-cancel-btn" class="bg-slate-200 px-6 py-2 rounded-lg hover:bg-slate-300">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">Confirmar Finalização</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -110,14 +110,13 @@
                 loginBtn: document.getElementById('login-btn'),
                 logoutBtn: document.getElementById('logout-btn'),
                 fetchTicketsBtn: document.getElementById('fetch-tickets-btn'),
-                updateLocationBtn: document.getElementById('update-location-btn'),
                 ticketsContainer: document.getElementById('tickets-container'),
                 ticketsPlaceholder: document.getElementById('tickets-placeholder'),
                 loginError: document.getElementById('login-error'),
                 techNameDisplay: document.getElementById('tech-name'),
-                confirmationModal: document.getElementById('confirmation-modal'),
-                modalText: document.getElementById('modal-text'),
-                modalConfirmBtn: document.getElementById('modal-confirm-btn'),
+                finalizeModal: document.getElementById('finalize-modal'),
+                modalTitle: document.getElementById('modal-title'),
+                finalizeForm: document.getElementById('finalize-form'),
                 modalCancelBtn: document.getElementById('modal-cancel-btn'),
             };
 
@@ -125,7 +124,6 @@
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 ui.loginError.classList.add('hidden');
-
                 try {
                     const response = await fetch(`${API_URL}/tecnico/login`, {
                         method: 'POST',
@@ -133,7 +131,6 @@
                         body: JSON.stringify({ username, password })
                     });
                     const data = await response.json();
-
                     if (response.ok) {
                         state.technicianId = data.tecnico_id;
                         state.technicianName = data.nome;
@@ -166,15 +163,23 @@
                     return;
                 }
                 tickets.forEach(ticket => {
-                    // LINHA DE DEPURAÇÃO: Verifique a consola do navegador (F12) para ver o status de cada chamado.
-                    console.log(`ID do Chamado: ${ticket.id_chamado}, Status Recebido: '${ticket.status}'`);
-
                     const ticketCard = document.createElement('div');
                     ticketCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 ${ticket.pessoa_presa ? 'card-priority border-red-500' : 'border-sky-500'}`;
                     
-                    const priorityHtml = ticket.pessoa_presa ? `<p class="text-sm font-bold text-red-600">⚠️ PRIORIDADE MÁXIMA (Pessoa Presa)</p>` : `<p class="text-sm font-semibold text-green-600">Prioridade Normal</p>`;
                     const statusClass = ticket.status === 'finalizado' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800';
                     const actionButtonHtml = ticket.status !== 'finalizado' ? `<button data-ticket-id="${ticket.id_chamado}" class="finalize-btn mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar Chamado</button>` : '';
+
+                    let detailsHtml = '';
+                    if (ticket.status === 'finalizado') {
+                        detailsHtml = `
+                            <div class="mt-3 text-sm text-slate-600 space-y-1">
+                                <p><strong>Serviços:</strong> ${ticket.servicos_realizados || 'N/A'}</p>
+                                <p><strong>Peças:</strong> ${ticket.pecas_trocadas || 'Nenhuma'}</p>
+                                <p><strong>Obs:</strong> ${ticket.observacao_texto || 'Nenhuma'}</p>
+                                <p><strong>Finalizado em:</strong> ${ticket.data_finalizacao}</p>
+                            </div>
+                        `;
+                    }
 
                     ticketCard.innerHTML = `
                         <div class="flex justify-between items-start">
@@ -185,14 +190,14 @@
                             <span class="status-badge text-xs font-semibold uppercase px-2 py-1 rounded-full ${statusClass}">${ticket.status}</span>
                         </div>
                         <div class="mt-4 pt-4 border-t border-slate-200">
-                            ${priorityHtml}
-                            <p class="mt-2 text-slate-700">${ticket.descricao}</p>
+                            <p class="mt-2 text-slate-700"><b>Problema:</b> ${ticket.descricao}</p>
+                            ${detailsHtml}
                             ${actionButtonHtml}
                         </div>`;
                     ui.ticketsContainer.appendChild(ticketCard);
                 });
 
-                document.querySelectorAll('.finalize-btn').forEach(button => button.addEventListener('click', openConfirmationModal));
+                document.querySelectorAll('.finalize-btn').forEach(button => button.addEventListener('click', openFinalizeModal));
             };
 
             const fetchTickets = async () => {
@@ -207,74 +212,58 @@
                 }
             };
 
-            const openConfirmationModal = (event) => {
+            const openFinalizeModal = (event) => {
                 ticketToFinalize = event.target.dataset.ticketId;
-                ui.modalText.textContent = `Tem a certeza que deseja finalizar o Chamado #${ticketToFinalize}?`;
-                ui.confirmationModal.classList.remove('hidden');
+                ui.modalTitle.textContent = `Finalizar Chamado #${ticketToFinalize}`;
+                ui.finalizeForm.reset();
+                ui.finalizeModal.classList.remove('hidden');
             };
 
-            const closeConfirmationModal = () => {
-                ui.confirmationModal.classList.add('hidden');
+            const closeFinalizeModal = () => {
+                ui.finalizeModal.classList.add('hidden');
                 ticketToFinalize = null;
             };
 
-            const confirmFinalizeTicket = async () => {
+            const handleFinalizeSubmit = async (event) => {
+                event.preventDefault();
                 if (!ticketToFinalize) return;
-                const button = document.querySelector(`.finalize-btn[data-ticket-id="${ticketToFinalize}"]`);
-                if (button) {
-                    button.disabled = true;
-                    button.textContent = 'A finalizar...';
-                }
-                closeConfirmationModal();
+
+                const button = event.target.querySelector('button[type="submit"]');
+                button.disabled = true;
+                button.textContent = 'A finalizar...';
+
+                const payload = {
+                    servicos_realizados: document.getElementById('servicos_realizados').value,
+                    pecas_trocadas: document.getElementById('pecas_trocadas').value,
+                    observacao_texto: document.getElementById('observacao_texto').value,
+                    observacao_audio_url: null // Simulado
+                };
 
                 try {
-                    const response = await fetch(`${API_URL}/chamado/${ticketToFinalize}/finalizar`, { method: 'POST' });
+                    const response = await fetch(`${API_URL}/chamado/${ticketToFinalize}/finalizar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
                     if (response.ok) {
-                        if (button) {
-                            button.textContent = 'Finalizado';
-                            button.classList.remove('bg-green-600', 'hover:bg-green-700');
-                            button.classList.add('bg-slate-400');
-                        }
-                        const card = button.closest('.bg-white');
-                        const statusBadge = card.querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'finalizado';
-                            statusBadge.classList.remove('bg-yellow-200', 'text-yellow-800');
-                            statusBadge.classList.add('bg-green-200', 'text-green-800');
-                        }
+                        closeFinalizeModal();
+                        fetchTickets(); // Recarrega a lista para mostrar o status atualizado
                     } else {
                         alert('Erro ao finalizar o chamado.');
-                        if (button) { button.disabled = false; button.textContent = 'Finalizar Chamado'; }
                     }
                 } catch (error) {
                     alert('Erro de conexão ao tentar finalizar o chamado.');
-                    if (button) { button.disabled = false; button.textContent = 'Finalizar Chamado'; }
-                }
-                ticketToFinalize = null;
-            };
-
-            const updateLocation = async () => {
-                if (!state.technicianId) return;
-                const lat = -23.55 + (Math.random() - 0.5) * 0.1;
-                const lon = -46.63 + (Math.random() - 0.5) * 0.1;
-                try {
-                    await fetch(`${API_URL}/tecnico/atualizar_localizacao`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tecnico_id: state.technicianId, latitude: lat, longitude: lon })
-                    });
-                    alert(`Localização atualizada para: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-                } catch (error) {
-                    alert('Erro ao atualizar a localização.');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Confirmar Finalização';
                 }
             };
 
             ui.loginBtn.addEventListener('click', handleLogin);
             ui.logoutBtn.addEventListener('click', handleLogout);
             ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
-            ui.updateLocationBtn.addEventListener('click', updateLocation);
-            ui.modalCancelBtn.addEventListener('click', closeConfirmationModal);
-            ui.modalConfirmBtn.addEventListener('click', confirmFinalizeTicket);
+            ui.modalCancelBtn.addEventListener('click', closeFinalizeModal);
+            ui.finalizeForm.addEventListener('submit', handleFinalizeSubmit);
         });
     </script>
 </body>
