@@ -1,7 +1,7 @@
 # app.py
 # Backend para o sistema de chamados da UpLine Elevadores
 # Use os seguintes comandos para instalar as dependências:
-# pip install Flask Flask-SQLAlchemy flask-cors
+# pip install Flask Flask-SQLAlchemy flask-cors psycopg2-binary
 
 import os
 from flask import Flask, request, jsonify
@@ -14,7 +14,19 @@ import datetime
 basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'upline.db')
+
+# --- CONFIGURAÇÃO DA BASE DE DADOS ---
+# Procura pela variável de ambiente DATABASE_URL (para o Render).
+# Se não encontrar, usa a base de dados local sqlite (para desenvolvimento).
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Corrige o prefixo do URL do Render de 'postgres://' para 'postgresql://'
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'upline.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
