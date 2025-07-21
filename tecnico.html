@@ -24,8 +24,8 @@
 </head>
 <body class="bg-slate-100">
 
-    <!-- Tela de Login (Visível inicialmente) -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center">
+    <!-- Tela de Login -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
         <div class="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
             <div class="flex justify-center mb-6">
                 <div class="flex items-center">
@@ -54,9 +54,9 @@
         </div>
     </div>
 
-    <!-- Tela Principal (Oculta inicialmente) -->
+    <!-- Tela Principal -->
     <div id="main-screen" class="hidden">
-        <header class="bg-white shadow-md">
+        <header class="bg-white shadow-md sticky top-0 z-10">
             <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
                 <div class="flex items-center">
                     <span class="w-10 h-10 bg-sky-600 text-white flex items-center justify-center rounded-lg text-xl font-bold">U</span>
@@ -72,7 +72,7 @@
         <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <div class="bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Ações Rápidas</h2>
-                <div class="flex gap-4">
+                <div class="flex flex-col sm:flex-row gap-4">
                     <button id="fetch-tickets-btn" class="flex-1 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 transition-colors">Ver Meus Chamados</button>
                     <button id="update-location-btn" class="flex-1 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Atualizar Localização (Simulação)</button>
                 </div>
@@ -87,36 +87,44 @@
         </main>
     </div>
 
+    <!-- Modal de Confirmação -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
+            <p id="modal-text" class="mb-4 text-lg">Tem a certeza?</p>
+            <div class="flex justify-center gap-4">
+                <button id="modal-cancel-btn" class="bg-slate-300 px-6 py-2 rounded-lg hover:bg-slate-400">Cancelar</button>
+                <button id="modal-confirm-btn" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">Sim, finalizar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- URL da API (deve ser o mesmo do seu backend no Render) ---
             const API_URL = 'https://upline01.onrender.com';
+            const state = { technicianId: null, technicianName: null };
+            let ticketToFinalize = null;
 
-            // --- Gerenciamento de Estado ---
-            const state = {
-                technicianId: null,
-                technicianName: null,
+            const ui = {
+                loginScreen: document.getElementById('login-screen'),
+                mainScreen: document.getElementById('main-screen'),
+                loginBtn: document.getElementById('login-btn'),
+                logoutBtn: document.getElementById('logout-btn'),
+                fetchTicketsBtn: document.getElementById('fetch-tickets-btn'),
+                updateLocationBtn: document.getElementById('update-location-btn'),
+                ticketsContainer: document.getElementById('tickets-container'),
+                ticketsPlaceholder: document.getElementById('tickets-placeholder'),
+                loginError: document.getElementById('login-error'),
+                techNameDisplay: document.getElementById('tech-name'),
+                confirmationModal: document.getElementById('confirmation-modal'),
+                modalText: document.getElementById('modal-text'),
+                modalConfirmBtn: document.getElementById('modal-confirm-btn'),
+                modalCancelBtn: document.getElementById('modal-cancel-btn'),
             };
 
-            // --- Elementos da UI ---
-            const loginScreen = document.getElementById('login-screen');
-            const mainScreen = document.getElementById('main-screen');
-            const loginBtn = document.getElementById('login-btn');
-            const logoutBtn = document.getElementById('logout-btn');
-            const fetchTicketsBtn = document.getElementById('fetch-tickets-btn');
-            const updateLocationBtn = document.getElementById('update-location-btn');
-            const ticketsContainer = document.getElementById('tickets-container');
-            const ticketsPlaceholder = document.getElementById('tickets-placeholder');
-            const loginError = document.getElementById('login-error');
-            const techNameDisplay = document.getElementById('tech-name');
-
-            // --- Funções da API ---
-
-            // Função de Login
-            loginBtn.addEventListener('click', async () => {
+            const handleLogin = async () => {
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
-                loginError.classList.add('hidden');
+                ui.loginError.classList.add('hidden');
 
                 try {
                     const response = await fetch(`${API_URL}/tecnico/login`, {
@@ -128,158 +136,145 @@
 
                     if (response.ok) {
                         state.technicianId = data.tecnico_id;
-                        state.technicianName = data.nome; 
-                        
-                        techNameDisplay.textContent = state.technicianName;
-                        loginScreen.classList.add('hidden');
-                        mainScreen.classList.remove('hidden');
+                        state.technicianName = data.nome;
+                        ui.techNameDisplay.textContent = state.technicianName;
+                        ui.loginScreen.classList.add('hidden');
+                        ui.mainScreen.classList.remove('hidden');
                     } else {
-                        loginError.textContent = data.erro || 'Erro desconhecido.';
-                        loginError.classList.remove('hidden');
+                        ui.loginError.textContent = data.erro || 'Erro desconhecido.';
+                        ui.loginError.classList.remove('hidden');
                     }
                 } catch (error) {
-                    loginError.textContent = 'Erro de conexão com o servidor.';
-                    loginError.classList.remove('hidden');
-                }
-            });
-            
-            // Função de Logout
-            logoutBtn.addEventListener('click', async () => {
-                state.technicianId = null;
-                state.technicianName = null;
-                mainScreen.classList.add('hidden');
-                loginScreen.classList.remove('hidden');
-                ticketsContainer.innerHTML = '';
-                ticketsContainer.appendChild(ticketsPlaceholder);
-            });
-
-            // Função para Buscar Chamados
-            fetchTicketsBtn.addEventListener('click', async () => {
-                if (!state.technicianId) return;
-                ticketsContainer.innerHTML = '<p class="text-center text-slate-500 py-8">A carregar chamados...</p>';
-
-                try {
-                    const response = await fetch(`${API_URL}/tecnico/${state.technicianId}/chamados`);
-                    const tickets = await response.json();
-                    
-                    ticketsContainer.innerHTML = ''; 
-                    if (tickets.length === 0) {
-                        ticketsContainer.innerHTML = '<p class="text-center text-slate-500 py-8">Você não tem nenhum chamado no seu histórico.</p>';
-                        return;
-                    }
-
-                    tickets.forEach(ticket => {
-                        const ticketCard = document.createElement('div');
-                        ticketCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 ${ticket.pessoa_presa ? 'card-priority border-red-500' : 'border-sky-500'}`;
-                        
-                        let priorityHtml = ticket.pessoa_presa 
-                            ? `<p class="text-sm font-bold text-red-600">⚠️ PRIORIDADE MÁXIMA (Pessoa Presa)</p>`
-                            : `<p class="text-sm font-semibold text-green-600">Prioridade Normal</p>`;
-
-                        let statusClass = 'bg-yellow-200 text-yellow-800';
-                        if (ticket.status === 'finalizado') {
-                            statusClass = 'bg-green-200 text-green-800';
-                        }
-
-                        // Adiciona um botão para finalizar o chamado, se ele não estiver finalizado
-                        let actionButtonHtml = '';
-                        if (ticket.status !== 'finalizado') {
-                            actionButtonHtml = `<button data-ticket-id="${ticket.id_chamado}" class="finalize-btn mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar Chamado</button>`;
-                        }
-
-                        ticketCard.innerHTML = `
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h3 class="font-bold text-lg text-slate-800">Chamado #${ticket.id_chamado}</h3>
-                                    <p class="text-sm text-slate-600">${ticket.endereco}</p>
-                                </div>
-                                <span class="status-badge text-xs font-semibold uppercase px-2 py-1 rounded-full ${statusClass}">${ticket.status}</span>
-                            </div>
-                            <div class="mt-4 pt-4 border-t border-slate-200">
-                                ${priorityHtml}
-                                <p class="mt-2 text-slate-700">${ticket.descricao}</p>
-                                ${actionButtonHtml}
-                            </div>
-                        `;
-                        ticketsContainer.appendChild(ticketCard);
-                    });
-
-                    // Adiciona os event listeners aos novos botões de finalizar
-                    document.querySelectorAll('.finalize-btn').forEach(button => {
-                        button.addEventListener('click', handleFinalizeTicket);
-                    });
-
-                } catch (error) {
-                    ticketsContainer.innerHTML = '<p class="text-center text-red-500 py-8">Não foi possível carregar os chamados.</p>';
-                }
-            });
-
-            // NOVA FUNÇÃO: Para lidar com o clique no botão "Finalizar"
-            const handleFinalizeTicket = async (event) => {
-                const button = event.target;
-                const ticketId = button.dataset.ticketId;
-                
-                if (!confirm(`Tem a certeza que deseja finalizar o Chamado #${ticketId}?`)) {
-                    return;
-                }
-
-                button.disabled = true;
-                button.textContent = 'A finalizar...';
-
-                try {
-                    const response = await fetch(`${API_URL}/chamado/${ticketId}/finalizar`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    if (response.ok) {
-                        button.textContent = 'Finalizado';
-                        button.classList.remove('bg-green-600', 'hover:bg-green-700');
-                        button.classList.add('bg-slate-400');
-                        
-                        // Atualiza o status no cartão para feedback visual imediato
-                        const card = button.closest('.bg-white');
-                        const statusBadge = card.querySelector('.status-badge');
-                        if(statusBadge){
-                           statusBadge.textContent = 'finalizado';
-                           statusBadge.classList.remove('bg-yellow-200', 'text-yellow-800');
-                           statusBadge.classList.add('bg-green-200', 'text-green-800');
-                        }
-                    } else {
-                        alert('Erro ao finalizar o chamado.');
-                        button.disabled = false;
-                        button.textContent = 'Finalizar Chamado';
-                    }
-                } catch (error) {
-                    alert('Erro de conexão ao tentar finalizar o chamado.');
-                    button.disabled = false;
-                    button.textContent = 'Finalizar Chamado';
+                    ui.loginError.textContent = 'Erro de conexão com o servidor.';
+                    ui.loginError.classList.remove('hidden');
                 }
             };
 
-            // Função para Atualizar Localização (Simulação)
-            updateLocationBtn.addEventListener('click', async () => {
+            const handleLogout = () => {
+                state.technicianId = null;
+                state.technicianName = null;
+                ui.mainScreen.classList.add('hidden');
+                ui.loginScreen.classList.remove('hidden');
+                ui.ticketsContainer.innerHTML = '';
+                ui.ticketsContainer.appendChild(ui.ticketsPlaceholder);
+            };
+
+            const renderTickets = (tickets) => {
+                ui.ticketsContainer.innerHTML = '';
+                if (tickets.length === 0) {
+                    ui.ticketsContainer.innerHTML = '<p class="text-center text-slate-500 py-8">Você não tem nenhum chamado no seu histórico.</p>';
+                    return;
+                }
+                tickets.forEach(ticket => {
+                    // LINHA DE DEPURAÇÃO: Verifique a consola do navegador (F12) para ver o status de cada chamado.
+                    console.log(`ID do Chamado: ${ticket.id_chamado}, Status Recebido: '${ticket.status}'`);
+
+                    const ticketCard = document.createElement('div');
+                    ticketCard.className = `bg-white p-4 rounded-lg shadow-sm border-l-4 ${ticket.pessoa_presa ? 'card-priority border-red-500' : 'border-sky-500'}`;
+                    
+                    const priorityHtml = ticket.pessoa_presa ? `<p class="text-sm font-bold text-red-600">⚠️ PRIORIDADE MÁXIMA (Pessoa Presa)</p>` : `<p class="text-sm font-semibold text-green-600">Prioridade Normal</p>`;
+                    const statusClass = ticket.status === 'finalizado' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800';
+                    const actionButtonHtml = ticket.status !== 'finalizado' ? `<button data-ticket-id="${ticket.id_chamado}" class="finalize-btn mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Finalizar Chamado</button>` : '';
+
+                    ticketCard.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Chamado #${ticket.id_chamado}</h3>
+                                <p class="text-sm text-slate-600">${ticket.endereco}</p>
+                            </div>
+                            <span class="status-badge text-xs font-semibold uppercase px-2 py-1 rounded-full ${statusClass}">${ticket.status}</span>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-200">
+                            ${priorityHtml}
+                            <p class="mt-2 text-slate-700">${ticket.descricao}</p>
+                            ${actionButtonHtml}
+                        </div>`;
+                    ui.ticketsContainer.appendChild(ticketCard);
+                });
+
+                document.querySelectorAll('.finalize-btn').forEach(button => button.addEventListener('click', openConfirmationModal));
+            };
+
+            const fetchTickets = async () => {
                 if (!state.technicianId) return;
-                
+                ui.ticketsContainer.innerHTML = '<p class="text-center text-slate-500 py-8">A carregar chamados...</p>';
+                try {
+                    const response = await fetch(`${API_URL}/tecnico/${state.technicianId}/chamados`);
+                    const tickets = await response.json();
+                    renderTickets(tickets);
+                } catch (error) {
+                    ui.ticketsContainer.innerHTML = '<p class="text-center text-red-500 py-8">Não foi possível carregar os chamados.</p>';
+                }
+            };
+
+            const openConfirmationModal = (event) => {
+                ticketToFinalize = event.target.dataset.ticketId;
+                ui.modalText.textContent = `Tem a certeza que deseja finalizar o Chamado #${ticketToFinalize}?`;
+                ui.confirmationModal.classList.remove('hidden');
+            };
+
+            const closeConfirmationModal = () => {
+                ui.confirmationModal.classList.add('hidden');
+                ticketToFinalize = null;
+            };
+
+            const confirmFinalizeTicket = async () => {
+                if (!ticketToFinalize) return;
+                const button = document.querySelector(`.finalize-btn[data-ticket-id="${ticketToFinalize}"]`);
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'A finalizar...';
+                }
+                closeConfirmationModal();
+
+                try {
+                    const response = await fetch(`${API_URL}/chamado/${ticketToFinalize}/finalizar`, { method: 'POST' });
+                    if (response.ok) {
+                        if (button) {
+                            button.textContent = 'Finalizado';
+                            button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                            button.classList.add('bg-slate-400');
+                        }
+                        const card = button.closest('.bg-white');
+                        const statusBadge = card.querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'finalizado';
+                            statusBadge.classList.remove('bg-yellow-200', 'text-yellow-800');
+                            statusBadge.classList.add('bg-green-200', 'text-green-800');
+                        }
+                    } else {
+                        alert('Erro ao finalizar o chamado.');
+                        if (button) { button.disabled = false; button.textContent = 'Finalizar Chamado'; }
+                    }
+                } catch (error) {
+                    alert('Erro de conexão ao tentar finalizar o chamado.');
+                    if (button) { button.disabled = false; button.textContent = 'Finalizar Chamado'; }
+                }
+                ticketToFinalize = null;
+            };
+
+            const updateLocation = async () => {
+                if (!state.technicianId) return;
                 const lat = -23.55 + (Math.random() - 0.5) * 0.1;
                 const lon = -46.63 + (Math.random() - 0.5) * 0.1;
-
                 try {
                     await fetch(`${API_URL}/tecnico/atualizar_localizacao`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            tecnico_id: state.technicianId,
-                            latitude: lat,
-                            longitude: lon
-                        })
+                        body: JSON.stringify({ tecnico_id: state.technicianId, latitude: lat, longitude: lon })
                     });
                     alert(`Localização atualizada para: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
                 } catch (error) {
                     alert('Erro ao atualizar a localização.');
                 }
-            });
+            };
 
+            ui.loginBtn.addEventListener('click', handleLogin);
+            ui.logoutBtn.addEventListener('click', handleLogout);
+            ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
+            ui.updateLocationBtn.addEventListener('click', updateLocation);
+            ui.modalCancelBtn.addEventListener('click', closeConfirmationModal);
+            ui.modalConfirmBtn.addEventListener('click', confirmFinalizeTicket);
         });
     </script>
 </body>
