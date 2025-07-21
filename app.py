@@ -72,29 +72,54 @@ def abrir_chamado():
     dados = request.json
     if not all(k in dados for k in ['codigo_qr', 'pessoa_presa', 'descricao']):
         return jsonify({'erro': 'Dados incompletos fornecidos.'}), 400
-    elevador = Elevador.query.filter_by(codigo_qr=dados['codigo_qr']).first()
-    if not elevador:
-        return jsonify({'erro': f"O elevador com o código '{dados['codigo_qr']}' não foi encontrado."}), 404
-    tecnicos_disponiveis = Tecnico.query.filter_by(de_plantao=True).filter(Tecnico.last_latitude.isnot(None)).all()
-    if not tecnicos_disponiveis:
-        return jsonify({'erro': 'Nenhum técnico disponível no momento.'}), 503
-    tecnico_mais_proximo = min(tecnicos_disponiveis, key=lambda t: calcular_distancia(elevador.latitude, elevador.longitude, t.last_latitude, t.last_longitude))
-    menor_distancia = calcular_distancia(elevador.latitude, elevador.longitude, tecnico_mais_proximo.last_latitude, tecnico_mais_proximo.last_longitude)
-    novo_chamado = Chamado(
-        descricao_problema=dados['descricao'],
-        pessoa_presa=bool(dados['pessoa_presa']),
-        elevador_id=elevador.id,
-        tecnico_id=tecnico_mais_proximo.id,
-        status='atribuido'
-    )
-    db.session.add(novo_chamado)
-    db.session.commit()
-    return jsonify({
-        'mensagem': 'Chamado aberto com sucesso!',
-        'id_chamado': novo_chamado.id,
-        'tecnico_atribuido': tecnico_mais_proximo.nome,
-        'distancia_km': round(menor_distancia, 2)
-    }), 201
+
+    try:
+        elevador = Elevador.query.filter_by(codigo_qr=dados['codigo_qr']).first()
+        if not elevador:
+            return jsonify({'erro': f"O elevador com o código '{dados['codigo_qr']}' não foi encontrado."}), 404
+
+        tecnicos_disponiveis = Tecnico.query.filter_by(de_plantao=True).filter(Tecnico.last_latitude.isnot(None)).all()
+        if not tecnicos_disponiveis:
+            return jsonify({'erro': 'Nenhum técnico disponível no momento.'}), 503
+
+        # Lógica mais robusta para encontrar o técnico mais próximo
+        tecnico_mais_proximo = None
+        menor_distancia = float('inf')
+
+        for tecnico in tecnicos_disponiveis:
+            dist = calcular_distancia(elevador.latitude, elevador.longitude, tecnico.last_latitude, tecnico.last_longitude)
+            if dist < menor_distancia:
+                menor_distancia = dist
+                tecnico_mais_proximo = tecnico
+        
+        # Verificação extra para garantir que um técnico foi encontrado
+        if tecnico_mais_proximo is None:
+             return jsonify({'erro': 'Não foi possível determinar o técnico mais próximo.'}), 500
+
+        novo_chamado = Chamado(
+            descricao_problema=dados['descricao'],
+            pessoa_presa=bool(dados['pessoa_presa']),
+            elevador_id=elevador.id,
+            tecnico_id=tecnico_mais_proximo.id,
+            status='atribuido'
+        )
+        
+        db.session.add(novo_chamado)
+        db.session.commit()
+
+        return jsonify({
+            'mensagem': 'Chamado aberto com sucesso!',
+            'id_chamado': novo_chamado.id,
+            'tecnico_atribuido': tecnico_mais_proximo.nome,
+            'distancia_km': round(menor_distancia, 2)
+        }), 201
+
+    except Exception as e:
+        # Captura qualquer erro inesperado e o regista nos logs do Render
+        app.logger.error(f"Erro inesperado em /chamado/abrir: {e}")
+        # Retorna uma mensagem de erro genérica para o utilizador
+        return jsonify({'erro': 'Ocorreu um erro interno no servidor. A equipa foi notificada.'}), 500
+
 
 @app.route('/tecnico/login', methods=['POST'])
 def tecnico_login():
