@@ -49,7 +49,7 @@ class Chamado(db.Model):
     descricao_problema = db.Column(db.String(500), nullable=False)
     pessoa_presa = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(50), default='aberto')
-    elevador_id = db.Column(db.Integer, db.ForeignKey('elevador.id'), nullable=False)
+    elevador_id = db.Column(db.Integer, db.ForeignKey('elevator.id'), nullable=False)
     tecnico_id = db.Column(db.Integer, db.ForeignKey('tecnico.id'), nullable=True)
 
 # --- FUNÇÕES AUXILIARES ---
@@ -146,7 +146,9 @@ def atualizar_localizacao():
 
 @app.route('/tecnico/<int:tecnico_id>/chamados', methods=['GET'])
 def get_chamados_tecnico(tecnico_id):
-    chamados = Chamado.query.filter_by(tecnico_id=tecnico_id, status='atribuido').all()
+    # ALTERAÇÃO: Remove o filtro de status para buscar todos os chamados (histórico)
+    # e ordena do mais novo para o mais antigo.
+    chamados = Chamado.query.filter_by(tecnico_id=tecnico_id).order_by(Chamado.timestamp.desc()).all()
     lista_chamados = [{
         'id_chamado': c.id,
         'endereco': c.elevador.endereco,
@@ -156,6 +158,22 @@ def get_chamados_tecnico(tecnico_id):
         'cliente': c.elevador.cliente.nome
     } for c in chamados]
     return jsonify(lista_chamados)
+
+# NOVA ROTA: Para finalizar um chamado
+@app.route('/chamado/<int:chamado_id>/finalizar', methods=['POST'])
+def finalizar_chamado(chamado_id):
+    try:
+        chamado = Chamado.query.get(chamado_id)
+        if not chamado:
+            return jsonify({'erro': 'Chamado não encontrado.'}), 404
+
+        chamado.status = 'finalizado'
+        db.session.commit()
+        
+        return jsonify({'mensagem': f'Chamado #{chamado_id} finalizado com sucesso.'})
+    except Exception as e:
+        app.logger.error(f"Erro ao finalizar chamado #{chamado_id}: {e}")
+        return jsonify({'erro': 'Ocorreu um erro interno ao finalizar o chamado.'}), 500
 
 # --- FUNÇÃO PARA INICIALIZAR O BANCO DE DADOS ---
 def criar_dados_iniciais():
@@ -211,4 +229,3 @@ with app.app_context():
 if __name__ == '__main__':
     # Para desenvolvimento local, a lógica acima também garante que a BD está pronta.
     app.run(debug=True, host='0.0.0.0')
-
