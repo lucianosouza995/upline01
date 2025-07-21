@@ -49,7 +49,8 @@ class Chamado(db.Model):
     descricao_problema = db.Column(db.String(500), nullable=False)
     pessoa_presa = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(50), default='aberto')
-    elevador_id = db.Column(db.Integer, db.ForeignKey('elevator.id'), nullable=False)
+    # CORREÇÃO: A chave estrangeira estava a apontar para 'elevator.id' em vez de 'elevador.id'
+    elevador_id = db.Column(db.Integer, db.ForeignKey('elevador.id'), nullable=False)
     tecnico_id = db.Column(db.Integer, db.ForeignKey('tecnico.id'), nullable=True)
 
 # --- FUNÇÕES AUXILIARES ---
