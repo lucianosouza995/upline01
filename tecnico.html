@@ -62,6 +62,8 @@
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Ações Rápidas</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <button id="fetch-tickets-btn" class="flex-1 bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700 transition-colors">Ver Meus Chamados</button>
+                    <!-- BOTÃO RESTAURADO -->
+                    <button id="update-location-btn" class="flex-1 bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Atualizar Localização (Simulação)</button>
                 </div>
             </div>
             <div>
@@ -110,6 +112,7 @@
                 loginBtn: document.getElementById('login-btn'),
                 logoutBtn: document.getElementById('logout-btn'),
                 fetchTicketsBtn: document.getElementById('fetch-tickets-btn'),
+                updateLocationBtn: document.getElementById('update-location-btn'), // LÓGICA RESTAURADA
                 ticketsContainer: document.getElementById('tickets-container'),
                 ticketsPlaceholder: document.getElementById('tickets-placeholder'),
                 loginError: document.getElementById('login-error'),
@@ -258,13 +261,8 @@
                     button.textContent = 'Confirmar Finalização';
                 }
             };
-
-            ui.loginBtn.addEventListener('click', handleLogin);
-            ui.logoutBtn.addEventListener('click', handleLogout);
-            ui.fetchTicketsBtn.addEventListener('click', fetchTickets);
-            ui.modalCancelBtn.addEventListener('click', closeFinalizeModal);
-            ui.finalizeForm.addEventListener('submit', handleFinalizeSubmit);
-        });
-    </script>
-</body>
-</html>
+            
+            // LÓGICA RESTAURADA
+            const updateLocation = async () => {
+                if (!state.technicianId) return;
+                co
