@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UpLine - Painel de Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .nav-link { transition: all 0.2s ease-in-out; }
+        .nav-link.active { background-color: #0284c7; color: white; }
+        .modal { transition: opacity 0.3s ease; }
+        .table-responsive { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body class="bg-slate-100">
+
+    <div class="flex h-screen bg-slate-200">
+        <!-- Barra Lateral de Navegação -->
+        <aside class="w-64 bg-slate-800 text-white flex flex-col">
+            <div class="flex items-center justify-center h-20 border-b border-slate-700">
+                <span class="w-10 h-10 bg-sky-600 flex items-center justify-center rounded-lg text-xl font-bold">U</span>
+                <h1 class="ml-3 text-2xl font-bold">UpLine</h1>
+            </div>
+            <nav id="main-nav" class="flex-1 px-4 py-4 space-y-2">
+                <a href="#dashboard" class="nav-link active flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Dashboard</a>
+                <a href="#chamados" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Chamados</a>
+                <a href="#clientes" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Clientes</a>
+                <a href="#elevadores" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Elevadores</a>
+                <a href="#tecnicos" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Técnicos</a>
+            </nav>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-white shadow-sm h-20 flex items-center justify-between px-6">
+                <h2 id="page-title" class="text-2xl font-bold text-slate-800">Dashboard</h2>
+            </header>
+            <div id="content-area" class="flex-1 p-6 overflow-y-auto">
+                <!-- As secções serão carregadas aqui -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Templates para as secções -->
+    <template id="dashboard-template">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Total de Chamados</h3>
+                <p id="total-chamados" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Técnicos Ativos</h3>
+                <p id="total-tecnicos" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Clientes com Contrato</h3>
+                <p id="total-clientes" class="text-3xl font-bold">0</p>
+            </div>
+        </div>
+    </template>
+    
+    <template id="chamados-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Endereço</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Técnico</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Abertura</th>
+                    </tr></thead>
+                    <tbody id="chamados-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="clientes-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-cliente-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Cliente</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Contrato Ativo</th>
+                    </tr></thead>
+                    <tbody id="clientes-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Outros templates (elevadores, tecnicos) seguem um padrão similar -->
+
+    <!-- Modal Genérico para Forms -->
+    <div id="form-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4 modal">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 id="form-modal-title" class="text-2xl font-bold mb-4"></h3>
+            <form id="generic-form" class="space-y-4"></form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_URL = 'https://upline01.onrender.com'; // URL do seu backend
+            const mainNav = document.getElementById('main-nav');
+            const contentArea = document.getElementById('content-area');
+            const pageTitle = document.getElementById('page-title');
+
+            const loadSection = async (hash) => {
+                const section = hash.substring(1) || 'dashboard';
+                pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+                
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if(link.getAttribute('href') === hash) link.classList.add('active');
+                });
+
+                const template = document.getElementById(`${section}-template`);
+                if (template) {
+                    contentArea.innerHTML = template.innerHTML;
+                    // Chamar a função para popular os dados da secção
+                    switch(section) {
+                        case 'dashboard': await loadDashboardData(); break;
+                        case 'chamados': await loadChamadosData(); break;
+                        case 'clientes': await loadClientesData(); break;
+                        // Adicionar casos para elevadores e tecnicos
+                    }
+                } else {
+                    contentArea.innerHTML = `<p>Secção não encontrada.</p>`;
+                }
+            };
+            
+            const loadDashboardData = async () => {
+                // Simulação - em um app real, teríamos endpoints específicos para estas contagens
+                const [chamados, tecnicos, clientes] = await Promise.all([
+                    fetch(`${API_URL}/admin/chamados`).then(res => res.json()),
+                    fetch(`${API_URL}/admin/tecnicos`).then(res => res.json()),
+                    fetch(`${API_URL}/admin/clientes`).then(res => res.json())
+                ]);
+                document.getElementById('total-chamados').textContent = chamados.length;
+                document.getElementById('total-tecnicos').textContent = tecnicos.length;
+                document.getElementById('total-clientes').textContent = clientes.filter(c => c.possui_contrato).length;
+            };
+
+            const loadChamadosData = async () => {
+                const response = await fetch(`${API_URL}/admin/chamados`);
+                const chamados = await response.json();
+                const tableBody = document.getElementById('chamados-table-body');
+                tableBody.innerHTML = '';
+                chamados.forEach(c => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">${c.id_chamado}</td>
+                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'finalizado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${c.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.endereco}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.tecnico_responsavel}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>
+                    `;
+                });
+            };
+
+            const loadClientesData = async () => {
+                const response = await fetch(`${API_URL}/admin/clientes`);
+                const clientes = await response.json();
+                const tableBody = document.getElementById('clientes-table-body');
+                tableBody.innerHTML = '';
+                clientes.forEach(c => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">${c.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.nome}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.possui_contrato ? 'Sim' : 'Não'}</td>
+                    `;
+                });
+                // Adicionar lógica para o botão "Adicionar Cliente"
+            };
+
+            mainNav.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A') {
+                    e.preventDefault();
+                    const hash = new URL(e.target.href).hash;
+                    window.location.hash = hash;
+                }
+            });
+
+            window.addEventListener('hashchange', () => loadSection(window.location.hash));
+            loadSection(window.location.hash || '#dashboard');
+        });
+    </script>
+</body>
+</html>
