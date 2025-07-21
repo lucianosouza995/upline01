@@ -128,12 +128,9 @@
 
                     if (response.ok) {
                         // Sucesso no login
+                        // O nome do técnico agora é obtido diretamente da resposta do login
                         state.technicianId = data.tecnico_id;
-                        // Vamos buscar o nome do técnico para exibir (em um app real, o endpoint de login já retornaria isso)
-                        const tecnicosResponse = await fetch(`${API_URL}/tecnicos`); // Supondo um novo endpoint para listar técnicos
-                        const tecnicos = await tecnicosResponse.json();
-                        const currentTech = tecnicos.find(t => t.id === state.technicianId);
-                        state.technicianName = currentTech ? currentTech.nome : 'Técnico';
+                        state.technicianName = data.nome; 
                         
                         techNameDisplay.textContent = state.technicianName;
                         loginScreen.classList.add('hidden');
