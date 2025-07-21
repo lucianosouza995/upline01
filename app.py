@@ -125,7 +125,7 @@ def atualizar_localizacao():
     db.session.commit()
     return jsonify({'mensagem': 'Localização atualizada com sucesso.'})
 
-# ROTA RESTAURADA
+# ROTA RESTAURADA E CORRIGIDA
 @app.route('/tecnico/<int:tecnico_id>/chamados', methods=['GET'])
 def get_chamados_tecnico(tecnico_id):
     chamados = Chamado.query.filter_by(tecnico_id=tecnico_id).order_by(Chamado.timestamp.desc()).all()
