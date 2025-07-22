@@ -9,6 +9,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from math import radians, sin, cos, sqrt, atan2
 import datetime
+# CORREÇÃO: Adicionada a importação de 'func' e 'extract'
+from sqlalchemy import func, extract
 
 # --- CONFIGURAÇÃO INICIAL ---
 basedir = os.path.abspath(os.path.dirname(__file__))
