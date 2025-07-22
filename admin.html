@@ -304,9 +304,149 @@
                 }
             };
 
-            // --- Lógica de Clientes, Elevadores, Técnicos (CRUD) ---
-            // ... (código existente para CRUD de clientes, elevadores, tecnicos) ...
+            // --- Lógica de Clientes ---
+            const loadClientesData = async () => {
+                const clientes = await apiRequest('clientes');
+                renderTable(clientes, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.possui_contrato ? 'Sim' : 'Não'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openClienteModal();
+            };
 
+            const openClienteModal = (item = null) => {
+                const isEditing = item !== null;
+                const formHtml = `
+                    <div><label class="block text-sm">Nome do Cliente</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="flex items-center"><input name="possui_contrato" type="checkbox" ${isEditing && item.possui_contrato ? 'checked' : ''} class="h-4 w-4 rounded"><label class="ml-2">Possui Contrato Ativo</label></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Cliente #${item.id}` : 'Adicionar Novo Cliente', formHtml, handleClienteSubmit);
+            };
+            
+            const handleClienteSubmit = async (formData) => {
+                const data = {
+                    nome: formData.get('nome'),
+                    possui_contrato: formData.get('possui_contrato') === 'on',
+                };
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `cliente/${state.editItemId}` : 'clientes';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadClientesData();
+            };
+            
+            // --- Lógica de Elevadores ---
+            const loadElevadoresData = async () => {
+                const elevadores = await apiRequest('elevadores');
+                renderTable(elevadores, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.codigo_qr}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.endereco}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.cliente_nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openElevadorModal();
+            };
+
+            const openElevadorModal = async (item = null) => {
+                const isEditing = item !== null;
+                const clientes = await apiRequest('clientes');
+                const options = clientes.map(c => `<option value="${c.id}" ${isEditing && c.id === item.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('');
+                const formHtml = `
+                    <div><label class="block text-sm">Código QR</label><input name="codigo_qr" type="text" value="${isEditing ? item.codigo_qr : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Endereço</label><input name="endereco" type="text" value="${isEditing ? item.endereco : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Latitude</label><input name="latitude" type="number" step="any" value="${isEditing ? item.latitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Longitude</label><input name="longitude" type="number" step="any" value="${isEditing ? item.longitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Cliente</label><select name="cliente_id" required class="mt-1 block w-full border-slate-300 rounded-md">${options}</select></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Elevador #${item.id}` : 'Adicionar Novo Elevador', formHtml, handleElevadorSubmit);
+            };
+
+             const handleElevadorSubmit = async (formData) => {
+                const data = Object.fromEntries(formData.entries());
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `elevador/${state.editItemId}` : 'elevadores';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadElevadoresData();
+            };
+
+            // --- Lógica de Técnicos ---
+             const loadTecnicosData = async () => {
+                const tecnicos = await apiRequest('tecnicos');
+                renderTable(tecnicos, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="" class="sr-only peer status-toggle" data-id="${item.id}" ${item.de_plantao ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            <span class="ml-3 text-sm font-medium text-gray-900">${item.de_plantao ? 'Ativo' : 'Inativo'}</span>
+                        </label>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openTecnicoModal();
+                document.querySelectorAll('.status-toggle').forEach(toggle => {
+                    toggle.addEventListener('change', handleTecnicoStatusToggle);
+                });
+            };
+
+            const handleTecnicoStatusToggle = async (event) => {
+                const toggle = event.target;
+                const tecnicoId = toggle.dataset.id;
+                const newStatus = toggle.checked;
+                try {
+                    await apiRequest(`tecnico/${tecnicoId}/status`, 'PUT', { de_plantao: newStatus });
+                    await loadTecnicosData();
+                } catch (error) {
+                    alert(`Falha ao alterar o status: ${error.message}`);
+                    toggle.checked = !newStatus;
+                }
+            };
+
+            const openTecnicoModal = (item = null) => {
+                const isEditing = item !== null;
+                const formHtml = `
+                    <div><label class="block text-sm">Nome Completo</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Username (para login)</label><input name="username" type="text" value="${isEditing ? item.username : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Senha ${isEditing ? '(deixar em branco para não alterar)' : ''}</label><input name="password" type="password" ${isEditing ? '' : 'required'} class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Técnico #${item.id}` : 'Adicionar Novo Técnico', formHtml, handleTecnicoSubmit);
+            };
+
+            const handleTecnicoSubmit = async (formData) => {
+                const data = {
+                    nome: formData.get('nome'),
+                    username: formData.get('username'),
+                };
+                const password = formData.get('password');
+                if (password) data.password = password;
+                
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `tecnico/${state.editItemId}` : 'tecnicos';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadTecnicosData();
+            };
+            
             // --- Funções de Carregamento Genéricas ---
             const loadSection = async (hash) => {
                 destroyCharts();
@@ -331,7 +471,6 @@
                 }
             };
             
-            // ... (restante do código) ...
             const loadChamadosData = async (filters = {}) => {
                 const queryParams = new URLSearchParams(filters).toString();
                 const [chamados, tecnicos, clientes, elevadores] = await Promise.all([
