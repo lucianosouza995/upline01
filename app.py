@@ -90,18 +90,37 @@ def abrir_chamado():
         elevador = Elevador.query.filter_by(codigo_qr=dados['codigo_qr']).first()
         if not elevador:
             return jsonify({'erro': f"O elevador com o código '{dados['codigo_qr']}' não foi encontrado."}), 404
+        
         tecnicos_disponiveis = Tecnico.query.filter_by(de_plantao=True).filter(Tecnico.last_latitude.isnot(None)).all()
+        
         if not tecnicos_disponiveis:
             novo_chamado_aberto = Chamado(descricao_problema=dados['descricao'], pessoa_presa=bool(dados['pessoa_presa']), elevador_id=elevador.id, status='aberto')
             db.session.add(novo_chamado_aberto)
             db.session.commit()
             return jsonify({'mensagem': 'Chamado aberto! Nenhum técnico disponível, aguardando atribuição manual.', 'id_chamado': novo_chamado_aberto.id}), 201
         
-        tecnico_mais_proximo = min(tecnicos_disponiveis, key=lambda t: calcular_distancia(elevador.latitude, elevador.longitude, t.last_latitude, t.last_longitude))
-        novo_chamado = Chamado(descricao_problema=dados['descricao'], pessoa_presa=bool(dados['pessoa_presa']), elevador_id=elevador.id, tecnico_id=tecnico_mais_proximo.id, status='atribuido')
-        db.session.add(novo_chamado)
-        db.session.commit()
-        return jsonify({'mensagem': 'Chamado aberto com sucesso!', 'id_chamado': novo_chamado.id, 'tecnico_atribuido': tecnico_mais_proximo.nome}), 201
+        # LÓGICA DE ATRIBUIÇÃO MAIS EXPLÍCITA COM LOGS
+        tecnico_mais_proximo = None
+        menor_distancia = float('inf')
+        app.logger.info(f"A procurar técnico para o elevador em {elevador.endereco} ({elevador.latitude}, {elevador.longitude})")
+        
+        for tecnico in tecnicos_disponiveis:
+            dist = calcular_distancia(elevador.latitude, elevador.longitude, tecnico.last_latitude, tecnico.last_longitude)
+            app.logger.info(f"-> Técnico verificado: {tecnico.nome} | Distância: {dist:.2f} km")
+            if dist < menor_distancia:
+                menor_distancia = dist
+                tecnico_mais_proximo = tecnico
+        
+        if tecnico_mais_proximo:
+            app.logger.info(f"==> Técnico selecionado: {tecnico_mais_proximo.nome}")
+            novo_chamado = Chamado(descricao_problema=dados['descricao'], pessoa_presa=bool(dados['pessoa_presa']), elevador_id=elevador.id, tecnico_id=tecnico_mais_proximo.id, status='atribuido')
+            db.session.add(novo_chamado)
+            db.session.commit()
+            return jsonify({'mensagem': 'Chamado aberto com sucesso!', 'id_chamado': novo_chamado.id, 'tecnico_atribuido': tecnico_mais_proximo.nome}), 201
+        else:
+            # Fallback caso algo corra mal no cálculo
+            return jsonify({'erro': 'Não foi possível determinar o técnico mais próximo.'}), 500
+
     except Exception as e:
         app.logger.error(f"Erro inesperado em /chamado/abrir: {e}")
         return jsonify({'erro': 'Ocorreu um erro interno no servidor.'}), 500
