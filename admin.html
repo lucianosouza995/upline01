@@ -50,20 +50,47 @@
         <!-- Cartões de Estatísticas Rápidas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-slate-500">Total de Chamados</h3>
+                <h3 class="text-slate-500">Total de Chamados (Filtrado)</h3>
                 <p id="total-chamados" class="text-3xl font-bold">0</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-slate-500">Total de Técnicos</h3>
+                <h3 class="text-slate-500">Total de Técnicos (Geral)</h3>
                 <p id="total-tecnicos" class="text-3xl font-bold">0</p>
             </div>
             <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-slate-500">Total de Elevadores</h3>
+                <h3 class="text-slate-500">Total de Elevadores (Geral)</h3>
                 <p id="total-elevadores" class="text-3xl font-bold">0</p>
             </div>
         </div>
+        <!-- SEÇÃO DE FILTROS DO DASHBOARD -->
+        <div id="dashboard-filters" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 border rounded-lg bg-white shadow">
+            <div>
+                <label for="filter-data-inicio" class="block text-sm font-medium text-slate-700">Data Início</label>
+                <input type="date" id="filter-data-inicio" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+                <label for="filter-data-fim" class="block text-sm font-medium text-slate-700">Data Fim</label>
+                <input type="date" id="filter-data-fim" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+                <label for="filter-cliente" class="block text-sm font-medium text-slate-700">Cliente</label>
+                <select id="filter-cliente" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div>
+                <label for="filter-elevador" class="block text-sm font-medium text-slate-700">Elevador</label>
+                <select id="filter-elevador" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div>
+                <label for="filter-tecnico" class="block text-sm font-medium text-slate-700">Técnico</label>
+                <select id="filter-tecnico" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div class="lg:col-span-5 flex justify-end gap-2">
+                <button id="clear-filters-btn" class="bg-slate-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-600">Limpar</button>
+                <button id="apply-filters-btn" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Filtrar</button>
+            </div>
+        </div>
         <!-- Gráficos do Dashboard -->
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-6 rounded-lg shadow">
                 <h3 class="text-lg font-semibold mb-4">Chamados por Status</h3>
                 <div class="chart-container">
@@ -77,8 +104,8 @@
                 </div>
             </div>
         </div>
-        <div class="mt-8 bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold mb-4">Volume de Chamados (Últimos 12 Meses)</h3>
+        <div class="mt-6 bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4">Volume de Chamados por Mês</h3>
             <div class="chart-container">
                 <canvas id="mesChart"></canvas>
             </div>
@@ -277,16 +304,44 @@
                 state.charts[chartId] = new Chart(ctx, { type, data, options });
             };
 
-            const loadDashboardData = async () => {
+            const loadDashboardData = async (filters = {}) => {
                 try {
-                    const stats = await apiRequest('dashboard/stats');
+                    const queryParams = new URLSearchParams(filters).toString();
+                    const [stats, clientes, elevadores, tecnicos] = await Promise.all([
+                        apiRequest(`dashboard/stats?${queryParams}`),
+                        apiRequest('clientes'),
+                        apiRequest('elevadores'),
+                        apiRequest('tecnicos')
+                    ]);
+
+                    const populateSelect = (selectId, data, valueField, textField) => {
+                        const select = document.getElementById(selectId);
+                        if (!select) return;
+                        const currentValue = select.value;
+                        select.innerHTML = '<option value="">Todos</option>';
+                        data.forEach(item => {
+                            select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
+                        });
+                        select.value = currentValue;
+                    };
+                    
+                    populateSelect('filter-cliente', clientes, 'id', 'nome');
+                    populateSelect('filter-elevador', elevadores, 'id', 'endereco');
+                    populateSelect('filter-tecnico', tecnicos, 'id', 'nome');
+
+                    Object.keys(filters).forEach(key => {
+                        const filterId = `filter-${key.replace('_id', '')}`;
+                        const element = document.getElementById(filterId);
+                        if (element) element.value = filters[key];
+                    });
+
                     document.getElementById('total-chamados').textContent = stats.total_chamados;
                     document.getElementById('total-tecnicos').textContent = stats.total_tecnicos;
                     document.getElementById('total-elevadores').textContent = stats.total_elevadores;
 
                     renderChart('statusChart', 'doughnut', {
-                        labels: Object.keys(stats.chamados_por_status),
-                        datasets: [{ data: Object.values(stats.chamados_por_status), backgroundColor: ['#f59e0b', '#22c55e', '#ef4444'] }]
+                        labels: Object.keys(stats.chamados_por_status).length > 0 ? Object.keys(stats.chamados_por_status) : ['Nenhum dado'],
+                        datasets: [{ data: Object.keys(stats.chamados_por_status).length > 0 ? Object.values(stats.chamados_por_status) : [1], backgroundColor: ['#f59e0b', '#22c55e', '#ef4444', '#6b7280'] }]
                     }, { responsive: true, maintainAspectRatio: false });
 
                     renderChart('tecnicoChart', 'bar', {
@@ -298,6 +353,23 @@
                         labels: stats.chamados_por_mes.map(item => item.mes),
                         datasets: [{ label: 'Total de Chamados', data: stats.chamados_por_mes.map(item => item.total), borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', fill: true, tension: 0.3 }]
                     }, { responsive: true, maintainAspectRatio: false });
+
+                    document.getElementById('apply-filters-btn').onclick = () => {
+                        const newFilters = {
+                            data_inicio: document.getElementById('filter-data-inicio').value,
+                            data_fim: document.getElementById('filter-data-fim').value,
+                            cliente_id: document.getElementById('filter-cliente').value,
+                            elevador_id: document.getElementById('filter-elevador').value,
+                            tecnico_id: document.getElementById('filter-tecnico').value,
+                        };
+                        Object.keys(newFilters).forEach(key => !newFilters[key] && delete newFilters[key]);
+                        loadDashboardData(newFilters);
+                    };
+
+                    document.getElementById('clear-filters-btn').onclick = () => {
+                        document.getElementById('dashboard-filters').querySelectorAll('input, select').forEach(el => el.value = '');
+                        loadDashboardData();
+                    };
 
                 } catch (error) {
                     console.error("Falha ao carregar dados do dashboard:", error);
