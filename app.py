@@ -76,7 +76,8 @@ class Chamado(db.Model):
 @app.route('/admin/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
     try:
-        chamados_query = Chamado.query
+        # Query base para os filtros
+        base_query = Chamado.query
 
         # Obter filtros dos argumentos do pedido
         cliente_id = request.args.get('cliente_id')
@@ -87,38 +88,38 @@ def get_dashboard_stats():
 
         # Aplicar filtros à query base de chamados
         if cliente_id:
-            chamados_query = chamados_query.join(Elevador).filter(Elevador.cliente_id == cliente_id)
+            base_query = base_query.join(Elevador).filter(Elevador.cliente_id == cliente_id)
         if elevador_id:
-            chamados_query = chamados_query.filter(Chamado.elevador_id == elevador_id)
+            base_query = base_query.filter(Chamado.elevador_id == elevador_id)
         if tecnico_id:
-            chamados_query = chamados_query.filter(Chamado.tecnico_id == tecnico_id)
+            base_query = base_query.filter(Chamado.tecnico_id == tecnico_id)
         if data_inicio:
             data_inicio_obj = datetime.datetime.strptime(data_inicio, '%Y-%m-%d')
-            chamados_query = chamados_query.filter(Chamado.timestamp >= data_inicio_obj)
+            base_query = base_query.filter(Chamado.timestamp >= data_inicio_obj)
         if data_fim:
             data_fim_obj = datetime.datetime.strptime(data_fim, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            chamados_query = chamados_query.filter(Chamado.timestamp <= data_fim_obj)
+            base_query = base_query.filter(Chamado.timestamp <= data_fim_obj)
 
         # 1. Chamados por Status (com base na query filtrada)
-        status_counts_query = db.session.query(Chamado.status, func.count(Chamado.id)).select_from(chamados_query.subquery()).group_by(Chamado.status)
+        status_counts_query = base_query.with_entities(Chamado.status, func.count(Chamado.id)).group_by(Chamado.status)
         status_counts = status_counts_query.all()
         chamados_por_status = {status: count for status, count in status_counts}
 
         # 2. Chamados por Técnico (com base na query filtrada)
-        tecnico_counts_query = db.session.query(Tecnico.nome, func.count(Chamado.id)).select_from(chamados_query.subquery()).join(Tecnico, Tecnico.id == Chamado.tecnico_id).group_by(Tecnico.nome).order_by(func.count(Chamado.id).desc())
+        tecnico_counts_query = base_query.join(Tecnico).with_entities(Tecnico.nome, func.count(Chamado.id)).group_by(Tecnico.nome).order_by(func.count(Chamado.id).desc())
         tecnico_counts = tecnico_counts_query.all()
         chamados_por_tecnico = {nome: count for nome, count in tecnico_counts}
 
         # 3. Chamados por Mês (com base na query filtrada)
-        chamados_mes_result = db.session.query(
+        chamados_mes_result = base_query.with_entities(
             extract('year', Chamado.timestamp).label('ano'),
             extract('month', Chamado.timestamp).label('mes'),
             func.count(Chamado.id)
-        ).select_from(chamados_query.subquery()).group_by('ano', 'mes').order_by('ano', 'mes').all()
+        ).group_by('ano', 'mes').order_by('ano', 'mes').all()
         chamados_por_mes = [{'mes': f"{int(mes):02d}/{int(ano)}", 'total': total} for ano, mes, total in chamados_mes_result]
 
         # 4. Contagens totais (uma filtrada, outras totais)
-        total_chamados_filtrado = chamados_query.count()
+        total_chamados_filtrado = base_query.count()
         total_tecnicos = Tecnico.query.count()
         total_elevadores = Elevador.query.count()
 
