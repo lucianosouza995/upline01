@@ -63,6 +63,32 @@
     
     <template id="chamados-template">
         <div class="bg-white p-6 rounded-lg shadow">
+            <div id="filters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 border rounded-lg bg-slate-50">
+                <div>
+                    <label for="filter-data-inicio" class="block text-sm font-medium text-slate-700">Data Início</label>
+                    <input type="date" id="filter-data-inicio" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+                </div>
+                <div>
+                    <label for="filter-data-fim" class="block text-sm font-medium text-slate-700">Data Fim</label>
+                    <input type="date" id="filter-data-fim" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+                </div>
+                <div>
+                    <label for="filter-cliente" class="block text-sm font-medium text-slate-700">Cliente</label>
+                    <select id="filter-cliente" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div>
+                    <label for="filter-elevador" class="block text-sm font-medium text-slate-700">Elevador</label>
+                    <select id="filter-elevador" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div>
+                    <label for="filter-tecnico" class="block text-sm font-medium text-slate-700">Técnico</label>
+                    <select id="filter-tecnico" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div class="lg:col-span-5 flex justify-end gap-2">
+                    <button id="clear-filters-btn" class="bg-slate-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-600">Limpar</button>
+                    <button id="apply-filters-btn" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Filtrar</button>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50"><tr>
@@ -365,8 +391,30 @@
                 document.getElementById('total-elevadores').textContent = elevadores.length;
             };
 
-            const loadChamadosData = async () => {
-                const [chamados, tecnicos] = await Promise.all([apiRequest('chamados'), apiRequest('tecnicos')]);
+            const loadChamadosData = async (filters = {}) => {
+                const queryParams = new URLSearchParams(filters).toString();
+                const [chamados, tecnicos, clientes, elevadores] = await Promise.all([
+                    apiRequest(`chamados?${queryParams}`),
+                    apiRequest('tecnicos'),
+                    apiRequest('clientes'),
+                    apiRequest('elevadores')
+                ]);
+
+                const populateSelect = (selectId, data, valueField, textField) => {
+                    const select = document.getElementById(selectId);
+                    if (!select) return;
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">Todos</option>';
+                    data.forEach(item => {
+                        select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
+                    });
+                    select.value = currentValue;
+                };
+
+                populateSelect('filter-cliente', clientes, 'id', 'nome');
+                populateSelect('filter-elevador', elevadores, 'id', 'endereco');
+                populateSelect('filter-tecnico', tecnicos, 'id', 'nome');
+
                 const tableBody = document.getElementById('chamados-table-body');
                 tableBody.innerHTML = '';
                 chamados.forEach(c => {
@@ -391,6 +439,23 @@
                         <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>`;
                 });
                 document.querySelectorAll('.assign-btn').forEach(button => button.addEventListener('click', handleManualAssignment));
+                
+                document.getElementById('apply-filters-btn').onclick = () => {
+                    const newFilters = {
+                        data_inicio: document.getElementById('filter-data-inicio').value,
+                        data_fim: document.getElementById('filter-data-fim').value,
+                        cliente_id: document.getElementById('filter-cliente').value,
+                        elevador_id: document.getElementById('filter-elevador').value,
+                        tecnico_id: document.getElementById('filter-tecnico').value,
+                    };
+                    Object.keys(newFilters).forEach(key => !newFilters[key] && delete newFilters[key]);
+                    loadChamadosData(newFilters);
+                };
+
+                document.getElementById('clear-filters-btn').onclick = () => {
+                    document.getElementById('filters').querySelectorAll('input, select').forEach(el => el.value = '');
+                    loadChamadosData();
+                };
             };
 
             const handleManualAssignment = async (event) => {
