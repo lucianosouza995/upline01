@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UpLine - Painel de Gestão</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .nav-link { transition: all 0.2s ease-in-out; }
+        .nav-link.active { background-color: #0284c7; color: white; }
+        .modal { transition: opacity 0.3s ease; }
+        .table-responsive { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .chart-container { position: relative; height: 350px; width: 100%; }
+    </style>
+</head>
+<body class="bg-slate-100">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-section" class="min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
+            <div class="flex justify-center mb-6">
+                <div class="flex items-center">
+                    <span class="w-12 h-12 bg-sky-600 text-white flex items-center justify-center rounded-lg text-2xl font-bold">U</span>
+                    <h1 class="ml-3 text-3xl font-bold text-slate-800">UpLine</h1>
+                </div>
+            </div>
+            <h2 class="text-center text-2xl font-semibold text-slate-700 mb-1">Acesso Gestor</h2>
+            <form id="login-form" class="space-y-4 mt-8">
+                <div>
+                    <label for="admin-username" class="block text-sm font-medium text-slate-600">Utilizador</label>
+                    <input type="text" id="admin-username" value="admin" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm">
+                </div>
+                <div>
+                    <label for="admin-password" class="block text-sm font-medium text-slate-600">Senha</label>
+                    <input type="password" id="admin-password" value="password" required class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm">
+                </div>
+                <button type="submit" class="mt-8 w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-sky-700">Entrar</button>
+                <div id="login-error" class="mt-4 text-center text-red-600 font-medium hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PAINEL PRINCIPAL (Oculto por padrão) -->
+    <div id="main-panel" class="hidden h-screen bg-slate-200">
+        <div class="flex h-full">
+            <!-- Barra Lateral de Navegação -->
+            <aside class="w-64 bg-slate-800 text-white flex flex-col">
+                <div class="flex items-center justify-center h-20 border-b border-slate-700">
+                    <span class="w-10 h-10 bg-sky-600 flex items-center justify-center rounded-lg text-xl font-bold">U</span>
+                    <h1 class="ml-3 text-2xl font-bold">UpLine</h1>
+                </div>
+                <nav id="main-nav" class="flex-1 px-4 py-4 space-y-2">
+                    <a href="#dashboard" class="nav-link active flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Dashboard</a>
+                    <a href="#chamados" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Chamados</a>
+                    <a href="#clientes" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Clientes</a>
+                    <a href="#elevadores" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Elevadores</a>
+                    <a href="#tecnicos" class="nav-link flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Técnicos</a>
+                </nav>
+                <div class="px-4 py-4 border-t border-slate-700">
+                    <button id="logout-btn" class="w-full text-left flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Sair</button>
+                </div>
+            </aside>
+
+            <!-- Conteúdo Principal -->
+            <main class="flex-1 flex flex-col overflow-hidden">
+                <header class="bg-white shadow-sm h-20 flex items-center justify-between px-6">
+                    <h2 id="page-title" class="text-2xl font-bold text-slate-800">Dashboard</h2>
+                </header>
+                <div id="content-area" class="flex-1 p-6 overflow-y-auto">
+                    <!-- As secções serão carregadas aqui -->
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Templates e Modal -->
+    <!-- ... (código dos templates e do modal genérico) ... -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_URL = 'https://upline01.onrender.com';
+            const state = { currentSection: '', editItemId: null, charts: {}, token: localStorage.getItem('upline_token') };
+
+            const ui = {
+                loginSection: document.getElementById('login-section'),
+                mainPanel: document.getElementById('main-panel'),
+                loginForm: document.getElementById('login-form'),
+                logoutBtn: document.getElementById('logout-btn'),
+                loginError: document.getElementById('login-error'),
+                mainNav: document.getElementById('main-nav'),
+                contentArea: document.getElementById('content-area'),
+                pageTitle: document.getElementById('page-title'),
+                // ... (outros elementos da UI)
+            };
+
+            const apiRequest = async (endpoint, method = 'GET', body = null) => {
+                const options = { 
+                    method, 
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-access-token': state.token 
+                    } 
+                };
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(`${API_URL}/admin/${endpoint}`, options);
+                if (response.status === 401) { // Token inválido ou expirado
+                    handleLogout();
+                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                }
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Falha na requisição à API' }));
+                    throw new Error(errorData.message || 'Erro desconhecido');
+                }
+                if (method !== 'DELETE' && response.status !== 204) return response.json();
+            };
+            
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('admin-username').value;
+                const password = document.getElementById('admin-password').value;
+                ui.loginError.classList.add('hidden');
+                try {
+                    const response = await fetch(`${API_URL}/admin/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        state.token = data.token;
+                        localStorage.setItem('upline_token', data.token);
+                        showMainPanel();
+                    } else {
+                        ui.loginError.textContent = data.message || 'Erro ao fazer login.';
+                        ui.loginError.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    ui.loginError.textContent = 'Erro de conexão com o servidor.';
+                    ui.loginError.classList.remove('hidden');
+                }
+            };
+
+            const handleLogout = () => {
+                state.token = null;
+                localStorage.removeItem('upline_token');
+                ui.mainPanel.style.display = 'none';
+                ui.loginSection.classList.remove('hidden');
+            };
+
+            const showMainPanel = () => {
+                ui.loginSection.classList.add('hidden');
+                ui.mainPanel.style.display = 'block'; // Mostra o painel principal
+                // O layout flex é controlado pelo CSS, então 'block' é suficiente aqui
+                loadSection(window.location.hash || '#dashboard');
+            };
+
+            // --- Inicialização ---
+            if (state.token) {
+                showMainPanel();
+            } else {
+                ui.loginSection.classList.remove('hidden');
+            }
+            
+            ui.loginForm.addEventListener('submit', handleLogin);
+            ui.logoutBtn.addEventListener('click', handleLogout);
+            
+            // ... (restante do código do painel de gestão para carregar secções, etc.) ...
+        });
+    </script>
+</body>
+</html>
