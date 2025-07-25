@@ -53,7 +53,7 @@
         <div class="flex h-screen bg-slate-200">
             <aside class="w-64 bg-slate-800 text-white flex flex-col">
                 <div class="flex items-center justify-center h-20 border-b border-slate-700">
-                    <span class="w-10 h-10 bg-sky-600 text-white flex items-center justify-center rounded-lg text-xl font-bold">U</span>
+                    <span class="w-10 h-10 bg-sky-600 flex items-center justify-center rounded-lg text-xl font-bold">U</span>
                     <h1 class="ml-3 text-2xl font-bold">UpLine</h1>
                 </div>
                 <nav id="main-nav" class="flex-1 px-4 py-4 space-y-2">
@@ -76,6 +76,7 @@
         </div>
     </div>
     
+    <!-- Templates e Modals -->
     <template id="dashboard-template">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-slate-500">Total de Chamados (Filtrado)</h3><p id="total-chamados" class="text-3xl font-bold">0</p></div>
@@ -148,7 +149,6 @@
                 modalCancelBtn: document.getElementById('modal-cancel-btn'),
             };
 
-            // --- FUNÇÕES DE LÓGICA E DE UI ---
             const showSpinner = () => ui.spinnerOverlay.classList.remove('hidden');
             const hideSpinner = () => ui.spinnerOverlay.classList.add('hidden');
 
