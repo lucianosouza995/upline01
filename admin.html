@@ -504,6 +504,13 @@
                 }
             };
 
+            const showMainPanel = () => {
+                ui.loginSection.classList.add('hidden');
+                ui.mainPanel.classList.remove('hidden');
+                ui.mainPanel.style.display = 'flex';
+                loadSection(window.location.hash || '#dashboard');
+            };
+
             const handleLogin = async (e) => {
                 e.preventDefault();
                 const button = e.target.querySelector('button[type="submit"]');
@@ -531,13 +538,6 @@
                 } finally {
                     setButtonLoading(button, false, 'Entrar');
                 }
-            };
-
-            const showMainPanel = () => {
-                ui.loginSection.classList.add('hidden');
-                ui.mainPanel.classList.remove('hidden');
-                ui.mainPanel.style.display = 'flex';
-                loadSection(window.location.hash || '#dashboard');
             };
 
             // --- INICIALIZAÇÃO E NAVEGAÇÃO ---
