@@ -51,7 +51,6 @@
     <!-- PAINEL PRINCIPAL (Oculto por padrão) -->
     <div id="main-panel" class="hidden">
         <div class="flex h-screen bg-slate-200">
-            <!-- Barra Lateral de Navegação -->
             <aside class="w-64 bg-slate-800 text-white flex flex-col">
                 <div class="flex items-center justify-center h-20 border-b border-slate-700">
                     <span class="w-10 h-10 bg-sky-600 flex items-center justify-center rounded-lg text-xl font-bold">U</span>
@@ -68,20 +67,15 @@
                     <button id="logout-btn" class="w-full text-left flex items-center px-4 py-2 rounded-lg hover:bg-slate-700">Sair</button>
                 </div>
             </aside>
-
-            <!-- Conteúdo Principal -->
             <main class="flex-1 flex flex-col overflow-hidden">
                 <header class="bg-white shadow-sm h-20 flex items-center justify-between px-6">
                     <h2 id="page-title" class="text-2xl font-bold text-slate-800">Dashboard</h2>
                 </header>
-                <div id="content-area" class="flex-1 p-6 overflow-y-auto">
-                    <!-- As secções serão carregadas aqui -->
-                </div>
+                <div id="content-area" class="flex-1 p-6 overflow-y-auto"></div>
             </main>
         </div>
     </div>
     
-    <!-- Templates e Modals -->
     <template id="dashboard-template">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white p-6 rounded-lg shadow"><h3 class="text-slate-500">Total de Chamados (Filtrado)</h3><p id="total-chamados" class="text-3xl font-bold">0</p></div>
@@ -234,7 +228,7 @@
                         const singularEndpoint = state.currentSection.slice(0, -1);
                         await apiRequest(`${singularEndpoint}/${id}`, 'DELETE');
                         showToast('Item apagado com sucesso!', 'success');
-                        state.cache[state.currentSection] = null; // Invalida o cache
+                        state.cache[state.currentSection] = null;
                         await loadSection(`#${state.currentSection}`);
                     } catch (error) {
                         showToast(`Falha ao apagar o item: ${error.message}`, 'error');
@@ -283,7 +277,7 @@
                     const endpoint = state.editItemId ? `${endpointSingular}/${state.editItemId}` : endpointPlural;
                     await apiRequest(endpoint, method, data);
                     
-                    state.cache[endpointPlural] = null; // Invalida o cache
+                    state.cache[endpointPlural] = null;
                     closeModal();
                     showToast(`Registo ${state.editItemId ? 'atualizado' : 'adicionado'} com sucesso!`, 'success');
                     await loadDataFunction();
@@ -298,7 +292,6 @@
             const handleElevadorSubmit = (formData) => handleFormSubmit(formData, 'elevador', 'elevadores', loadElevadoresData);
             const handleTecnicoSubmit = (formData) => handleFormSubmit(formData, 'tecnico', 'tecnicos', loadTecnicosData);
 
-            // --- FUNÇÕES DE CARREGAMENTO DE DADOS RESTAURADAS ---
             const loadClientesData = async () => {
                 const clientes = await getCachedData('clientes');
                 renderTable(clientes, item => `
@@ -383,7 +376,7 @@
                 const newStatus = toggle.checked;
                 try {
                     await apiRequest(`tecnico/${tecnicoId}/status`, 'PUT', { de_plantao: newStatus });
-                    state.cache.tecnicos = null; // Invalida o cache
+                    state.cache.tecnicos = null;
                     await loadTecnicosData();
                     showToast('Status do técnico atualizado!', 'success');
                 } catch (error) {
@@ -488,7 +481,6 @@
                 }
             };
             
-            // --- INICIALIZAÇÃO E NAVEGAÇÃO ---
             const loadSection = async (hash) => {
                 destroyCharts();
                 const section = hash.substring(1) || 'dashboard';
@@ -512,6 +504,7 @@
                 }
             };
 
+            // --- INICIALIZAÇÃO E NAVEGAÇÃO ---
             if (state.token) {
                 showMainPanel();
             } else {
