@@ -505,6 +505,42 @@
             };
 
             // --- INICIALIZAÇÃO E NAVEGAÇÃO ---
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                const button = e.target.querySelector('button[type="submit"]');
+                setButtonLoading(button, true);
+                ui.loginError.classList.add('hidden');
+                try {
+                    const username = document.getElementById('admin-username').value;
+                    const password = document.getElementById('admin-password').value;
+                    const response = await fetch(`${API_URL}/admin/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        state.token = data.token;
+                        localStorage.setItem('upline_token', data.token);
+                        showMainPanel();
+                    } else {
+                        throw new Error(data.message || 'Erro ao fazer login.');
+                    }
+                } catch (error) {
+                    ui.loginError.textContent = error.message;
+                    ui.loginError.classList.remove('hidden');
+                } finally {
+                    setButtonLoading(button, false, 'Entrar');
+                }
+            };
+
+            const showMainPanel = () => {
+                ui.loginSection.classList.add('hidden');
+                ui.mainPanel.classList.remove('hidden');
+                ui.mainPanel.style.display = 'flex';
+                loadSection(window.location.hash || '#dashboard');
+            };
+
             if (state.token) {
                 showMainPanel();
             } else {
