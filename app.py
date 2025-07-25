@@ -75,6 +75,16 @@ class Admin(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
+# --- FUNÇÕES AUXILIARES ---
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+    a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return R * c
+
 # --- LÓGICA DE AUTENTICAÇÃO JWT ---
 def token_required(f):
     @wraps(f)
