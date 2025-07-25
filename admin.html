@@ -77,7 +77,174 @@
     </div>
     
     <!-- Templates e Modal -->
-    <!-- ... (código dos templates e do modal genérico) ... -->
+    <template id="dashboard-template">
+        <!-- Cartões de Estatísticas Rápidas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Total de Chamados (Filtrado)</h3>
+                <p id="total-chamados" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Total de Técnicos (Geral)</h3>
+                <p id="total-tecnicos" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-slate-500">Total de Elevadores (Geral)</h3>
+                <p id="total-elevadores" class="text-3xl font-bold">0</p>
+            </div>
+        </div>
+        <!-- SEÇÃO DE FILTROS DO DASHBOARD -->
+        <div id="dashboard-filters" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 border rounded-lg bg-white shadow">
+            <div>
+                <label for="filter-data-inicio" class="block text-sm font-medium text-slate-700">Data Início</label>
+                <input type="date" id="filter-data-inicio" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+                <label for="filter-data-fim" class="block text-sm font-medium text-slate-700">Data Fim</label>
+                <input type="date" id="filter-data-fim" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+                <label for="filter-cliente" class="block text-sm font-medium text-slate-700">Cliente</label>
+                <select id="filter-cliente" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div>
+                <label for="filter-elevador" class="block text-sm font-medium text-slate-700">Elevador</label>
+                <select id="filter-elevador" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div>
+                <label for="filter-tecnico" class="block text-sm font-medium text-slate-700">Técnico</label>
+                <select id="filter-tecnico" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+            </div>
+            <div class="lg:col-span-5 flex justify-end gap-2">
+                <button id="clear-filters-btn" class="bg-slate-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-600">Limpar</button>
+                <button id="apply-filters-btn" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Filtrar</button>
+            </div>
+        </div>
+        <!-- Gráficos do Dashboard -->
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Chamados por Status</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Chamados por Técnico</h3>
+                <div class="chart-container">
+                    <canvas id="tecnicoChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 bg-white p-6 rounded-lg shadow">
+            <h3 class="text-lg font-semibold mb-4">Volume de Chamados por Mês</h3>
+            <div class="chart-container">
+                <canvas id="mesChart"></canvas>
+            </div>
+        </div>
+    </template>
+    
+    <template id="chamados-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <div id="filters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 border rounded-lg bg-slate-50">
+                <div>
+                    <label for="filter-data-inicio" class="block text-sm font-medium text-slate-700">Data Início</label>
+                    <input type="date" id="filter-data-inicio" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+                </div>
+                <div>
+                    <label for="filter-data-fim" class="block text-sm font-medium text-slate-700">Data Fim</label>
+                    <input type="date" id="filter-data-fim" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm">
+                </div>
+                <div>
+                    <label for="filter-cliente" class="block text-sm font-medium text-slate-700">Cliente</label>
+                    <select id="filter-cliente" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div>
+                    <label for="filter-elevador" class="block text-sm font-medium text-slate-700">Elevador</label>
+                    <select id="filter-elevador" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div>
+                    <label for="filter-tecnico" class="block text-sm font-medium text-slate-700">Técnico</label>
+                    <select id="filter-tecnico" class="mt-1 block w-full border-slate-300 rounded-md shadow-sm text-sm"><option value="">Todos</option></select>
+                </div>
+                <div class="lg:col-span-5 flex justify-end gap-2">
+                    <button id="clear-filters-btn" class="bg-slate-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-600">Limpar</button>
+                    <button id="apply-filters-btn" class="bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Filtrar</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Endereço</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Técnico</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Abertura</th>
+                    </tr></thead>
+                    <tbody id="chamados-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="clientes-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Cliente</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Contrato Ativo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
+                    </tr></thead>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+    
+    <template id="elevadores-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Elevador</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Código QR</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Endereço</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Cliente</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
+                    </tr></thead>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <template id="tecnicos-template">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <button id="add-btn" class="mb-4 bg-sky-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-700">Adicionar Técnico</button>
+            <div class="table-responsive">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50"><tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Username</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status Plantão</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ações</th>
+                    </tr></thead>
+                    <tbody id="data-table-body" class="bg-white divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <!-- Modal Genérico para Forms -->
+    <div id="form-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 p-4 modal">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 id="form-modal-title" class="text-2xl font-bold mb-4"></h3>
+            <form id="generic-form" class="space-y-4"></form>
+        </div>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -93,9 +260,12 @@
                 mainNav: document.getElementById('main-nav'),
                 contentArea: document.getElementById('content-area'),
                 pageTitle: document.getElementById('page-title'),
-                // ... (outros elementos da UI)
+                formModal: document.getElementById('form-modal'),
+                formModalTitle: document.getElementById('form-modal-title'),
+                genericForm: document.getElementById('generic-form'),
             };
 
+            // --- FUNÇÕES DEFINIDAS PRIMEIRO ---
             const apiRequest = async (endpoint, method = 'GET', body = null) => {
                 const options = { 
                     method, 
@@ -106,7 +276,7 @@
                 };
                 if (body) options.body = JSON.stringify(body);
                 const response = await fetch(`${API_URL}/admin/${endpoint}`, options);
-                if (response.status === 401) { // Token inválido ou expirado
+                if (response.status === 401) {
                     handleLogout();
                     throw new Error('Sessão expirada. Por favor, faça login novamente.');
                 }
@@ -117,6 +287,42 @@
                 if (method !== 'DELETE' && response.status !== 204) return response.json();
             };
             
+            const handleLogout = () => {
+                state.token = null;
+                localStorage.removeItem('upline_token');
+                ui.mainPanel.style.display = 'none';
+                ui.loginSection.classList.remove('hidden');
+            };
+
+            const loadSection = async (hash) => {
+                destroyCharts();
+                const section = hash.substring(1) || 'dashboard';
+                state.currentSection = section;
+                ui.pageTitle.textContent = section.charAt(0).toUpperCase() + section.slice(1);
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('active');
+                    if(link.getAttribute('href') === `#${section}`) link.classList.add('active');
+                });
+                const template = document.getElementById(`${section}-template`);
+                if (template) {
+                    ui.contentArea.innerHTML = template.innerHTML;
+                    const dataLoaders = {
+                        'dashboard': loadDashboardData, 'chamados': loadChamadosData,
+                        'clientes': loadClientesData, 'elevadores': loadElevadoresData,
+                        'tecnicos': loadTecnicosData,
+                    };
+                    if (dataLoaders[section]) await dataLoaders[section]();
+                } else {
+                    ui.contentArea.innerHTML = `<p>Secção não encontrada.</p>`;
+                }
+            };
+            
+            const showMainPanel = () => {
+                ui.loginSection.classList.add('hidden');
+                ui.mainPanel.style.display = 'flex';
+                loadSection(window.location.hash || '#dashboard');
+            };
+
             const handleLogin = async (e) => {
                 e.preventDefault();
                 const username = document.getElementById('admin-username').value;
@@ -143,21 +349,375 @@
                 }
             };
 
-            const handleLogout = () => {
-                state.token = null;
-                localStorage.removeItem('upline_token');
-                ui.mainPanel.style.display = 'none';
-                ui.loginSection.classList.remove('hidden');
+            const closeModal = () => {
+                ui.formModal.classList.add('hidden');
+                ui.genericForm.innerHTML = '';
+                state.editItemId = null;
             };
 
-            const showMainPanel = () => {
-                ui.loginSection.classList.add('hidden');
-                ui.mainPanel.style.display = 'block'; // Mostra o painel principal
-                // O layout flex é controlado pelo CSS, então 'block' é suficiente aqui
-                loadSection(window.location.hash || '#dashboard');
+            const openModal = (title, formHtml, submitHandler) => {
+                ui.formModalTitle.textContent = title;
+                ui.genericForm.innerHTML = formHtml;
+                ui.formModal.classList.remove('hidden');
+                ui.genericForm.onsubmit = async (e) => {
+                    e.preventDefault();
+                    await submitHandler(new FormData(ui.genericForm));
+                };
+                ui.genericForm.querySelector('.cancel-btn')?.addEventListener('click', closeModal);
             };
 
-            // --- Inicialização ---
+            const renderTable = (data, rowRenderer) => {
+                const tableBody = document.getElementById('data-table-body');
+                if (!tableBody) return;
+                tableBody.innerHTML = '';
+                data.forEach(item => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = rowRenderer(item);
+                    row.querySelector('.edit-btn')?.addEventListener('click', () => openEditModal(item));
+                    row.querySelector('.delete-btn')?.addEventListener('click', () => handleDelete(item.id));
+                });
+            };
+
+            const handleDelete = async (id) => {
+                if (!confirm(`Tem a certeza que deseja apagar o item #${id}? Esta ação não pode ser desfeita.`)) return;
+                try {
+                    const singularEndpoint = state.currentSection.slice(0, -1);
+                    await apiRequest(`${singularEndpoint}/${id}`, 'DELETE');
+                    await loadSection(`#${state.currentSection}`);
+                } catch (error) {
+                    alert(`Falha ao apagar o item: ${error.message}`);
+                }
+            };
+            
+            const openEditModal = async (item) => {
+                state.editItemId = item.id;
+                const section = state.currentSection;
+                const handlers = {
+                    'clientes': () => openClienteModal(item),
+                    'elevadores': () => openElevadorModal(item),
+                    'tecnicos': () => openTecnicoModal(item),
+                };
+                if (handlers[section]) await handlers[section]();
+            };
+            
+            const destroyCharts = () => {
+                Object.values(state.charts).forEach(chart => chart.destroy());
+                state.charts = {};
+            };
+
+            const renderChart = (chartId, type, data, options = {}) => {
+                const ctx = document.getElementById(chartId)?.getContext('2d');
+                if (!ctx) return;
+                if (state.charts[chartId]) state.charts[chartId].destroy();
+                state.charts[chartId] = new Chart(ctx, { type, data, options });
+            };
+
+            const loadDashboardData = async (filters = {}) => {
+                try {
+                    const queryParams = new URLSearchParams(filters).toString();
+                    const [stats, clientes, elevadores, tecnicos] = await Promise.all([
+                        apiRequest(`dashboard/stats?${queryParams}`),
+                        apiRequest('clientes'),
+                        apiRequest('elevadores'),
+                        apiRequest('tecnicos')
+                    ]);
+
+                    const populateSelect = (selectId, data, valueField, textField) => {
+                        const select = document.getElementById(selectId);
+                        if (!select) return;
+                        const currentValue = select.value;
+                        select.innerHTML = '<option value="">Todos</option>';
+                        data.forEach(item => {
+                            select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
+                        });
+                        select.value = currentValue;
+                    };
+                    
+                    populateSelect('filter-cliente', clientes, 'id', 'nome');
+                    populateSelect('filter-elevador', elevadores, 'id', 'endereco');
+                    populateSelect('filter-tecnico', tecnicos, 'id', 'nome');
+
+                    Object.keys(filters).forEach(key => {
+                        const filterId = `filter-${key.replace('_id', '')}`;
+                        const element = document.getElementById(filterId);
+                        if (element) element.value = filters[key];
+                    });
+
+                    document.getElementById('total-chamados').textContent = stats.total_chamados;
+                    document.getElementById('total-tecnicos').textContent = stats.total_tecnicos;
+                    document.getElementById('total-elevadores').textContent = stats.total_elevadores;
+
+                    renderChart('statusChart', 'doughnut', {
+                        labels: Object.keys(stats.chamados_por_status).length > 0 ? Object.keys(stats.chamados_por_status) : ['Nenhum dado'],
+                        datasets: [{ data: Object.keys(stats.chamados_por_status).length > 0 ? Object.values(stats.chamados_por_status) : [1], backgroundColor: ['#f59e0b', '#22c55e', '#ef4444', '#6b7280'] }]
+                    }, { responsive: true, maintainAspectRatio: false });
+
+                    renderChart('tecnicoChart', 'bar', {
+                        labels: Object.keys(stats.chamados_por_tecnico),
+                        datasets: [{ label: 'Nº de Chamados', data: Object.values(stats.chamados_por_tecnico), backgroundColor: '#38bdf8' }]
+                    }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y' });
+
+                    renderChart('mesChart', 'line', {
+                        labels: stats.chamados_por_mes.map(item => item.mes),
+                        datasets: [{ label: 'Total de Chamados', data: stats.chamados_por_mes.map(item => item.total), borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', fill: true, tension: 0.3 }]
+                    }, { responsive: true, maintainAspectRatio: false });
+
+                    document.getElementById('apply-filters-btn').onclick = () => {
+                        const newFilters = {
+                            data_inicio: document.getElementById('filter-data-inicio').value,
+                            data_fim: document.getElementById('filter-data-fim').value,
+                            cliente_id: document.getElementById('filter-cliente').value,
+                            elevador_id: document.getElementById('filter-elevador').value,
+                            tecnico_id: document.getElementById('filter-tecnico').value,
+                        };
+                        Object.keys(newFilters).forEach(key => !newFilters[key] && delete newFilters[key]);
+                        loadDashboardData(newFilters);
+                    };
+
+                    document.getElementById('clear-filters-btn').onclick = () => {
+                        document.getElementById('dashboard-filters').querySelectorAll('input, select').forEach(el => el.value = '');
+                        loadDashboardData();
+                    };
+
+                } catch (error) {
+                    console.error("Falha ao carregar dados do dashboard:", error);
+                }
+            };
+
+            const loadClientesData = async () => {
+                const clientes = await apiRequest('clientes');
+                renderTable(clientes, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.possui_contrato ? 'Sim' : 'Não'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openClienteModal();
+            };
+            
+            const openClienteModal = (item = null) => {
+                const isEditing = item !== null;
+                const formHtml = `
+                    <div><label class="block text-sm">Nome do Cliente</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="flex items-center"><input name="possui_contrato" type="checkbox" ${isEditing && item.possui_contrato ? 'checked' : ''} class="h-4 w-4 rounded"><label class="ml-2">Possui Contrato Ativo</label></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Cliente #${item.id}` : 'Adicionar Novo Cliente', formHtml, handleClienteSubmit);
+            };
+            
+            const handleClienteSubmit = async (formData) => {
+                const data = {
+                    nome: formData.get('nome'),
+                    possui_contrato: formData.get('possui_contrato') === 'on',
+                };
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `cliente/${state.editItemId}` : 'clientes';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadClientesData();
+            };
+            
+            const loadElevadoresData = async () => {
+                const elevadores = await apiRequest('elevadores');
+                renderTable(elevadores, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.codigo_qr}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.endereco}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.cliente_nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openElevadorModal();
+            };
+
+            const openElevadorModal = async (item = null) => {
+                const isEditing = item !== null;
+                const clientes = await apiRequest('clientes');
+                const options = clientes.map(c => `<option value="${c.id}" ${isEditing && c.id === item.cliente_id ? 'selected' : ''}>${c.nome}</option>`).join('');
+                const formHtml = `
+                    <div><label class="block text-sm">Código QR</label><input name="codigo_qr" type="text" value="${isEditing ? item.codigo_qr : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Endereço</label><input name="endereco" type="text" value="${isEditing ? item.endereco : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Latitude</label><input name="latitude" type="number" step="any" value="${isEditing ? item.latitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Longitude</label><input name="longitude" type="number" step="any" value="${isEditing ? item.longitude : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Cliente</label><select name="cliente_id" required class="mt-1 block w-full border-slate-300 rounded-md">${options}</select></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Elevador #${item.id}` : 'Adicionar Novo Elevador', formHtml, handleElevadorSubmit);
+            };
+
+             const handleElevadorSubmit = async (formData) => {
+                const data = Object.fromEntries(formData.entries());
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `elevador/${state.editItemId}` : 'elevadores';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadElevadoresData();
+            };
+
+             const loadTecnicosData = async () => {
+                const tecnicos = await apiRequest('tecnicos');
+                renderTable(tecnicos, item => `
+                    <td class="px-6 py-4 whitespace-nowrap">${item.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${item.username}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="" class="sr-only peer status-toggle" data-id="${item.id}" ${item.de_plantao ? 'checked' : ''}>
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            <span class="ml-3 text-sm font-medium text-gray-900">${item.de_plantao ? 'Ativo' : 'Inativo'}</span>
+                        </label>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-btn text-sky-600 hover:text-sky-900">Editar</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900 ml-4">Apagar</button>
+                    </td>`);
+                document.getElementById('add-btn').onclick = () => openTecnicoModal();
+                document.querySelectorAll('.status-toggle').forEach(toggle => {
+                    toggle.addEventListener('change', handleTecnicoStatusToggle);
+                });
+            };
+
+            const handleTecnicoStatusToggle = async (event) => {
+                const toggle = event.target;
+                const tecnicoId = toggle.dataset.id;
+                const newStatus = toggle.checked;
+                try {
+                    await apiRequest(`tecnico/${tecnicoId}/status`, 'PUT', { de_plantao: newStatus });
+                    await loadTecnicosData();
+                } catch (error) {
+                    alert(`Falha ao alterar o status: ${error.message}`);
+                    toggle.checked = !newStatus;
+                }
+            };
+
+            const openTecnicoModal = (item = null) => {
+                const isEditing = item !== null;
+                const formHtml = `
+                    <div><label class="block text-sm">Nome Completo</label><input name="nome" type="text" value="${isEditing ? item.nome : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Username (para login)</label><input name="username" type="text" value="${isEditing ? item.username : ''}" required class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div><label class="block text-sm">Senha ${isEditing ? '(deixar em branco para não alterar)' : ''}</label><input name="password" type="password" ${isEditing ? '' : 'required'} class="mt-1 block w-full border-slate-300 rounded-md"></div>
+                    <div class="pt-4 flex justify-end gap-4">
+                        <button type="button" class="cancel-btn bg-slate-200 px-4 py-2 rounded-lg">Cancelar</button>
+                        <button type="submit" class="bg-sky-600 text-white px-4 py-2 rounded-lg">${isEditing ? 'Guardar Alterações' : 'Adicionar'}</button>
+                    </div>`;
+                openModal(isEditing ? `Editar Técnico #${item.id}` : 'Adicionar Novo Técnico', formHtml, handleTecnicoSubmit);
+            };
+
+            const handleTecnicoSubmit = async (formData) => {
+                const data = {
+                    nome: formData.get('nome'),
+                    username: formData.get('username'),
+                };
+                const password = formData.get('password');
+                if (password) data.password = password;
+                
+                const method = state.editItemId ? 'PUT' : 'POST';
+                const endpoint = state.editItemId ? `tecnico/${state.editItemId}` : 'tecnicos';
+                await apiRequest(endpoint, method, data);
+                closeModal();
+                await loadTecnicosData();
+            };
+            
+            const loadChamadosData = async (filters = {}) => {
+                const queryParams = new URLSearchParams(filters).toString();
+                const [chamados, tecnicos, clientes, elevadores] = await Promise.all([
+                    apiRequest(`chamados?${queryParams}`), apiRequest('tecnicos'),
+                    apiRequest('clientes'), apiRequest('elevadores')
+                ]);
+
+                const populateSelect = (selectId, data, valueField, textField) => {
+                    const select = document.getElementById(selectId);
+                    if (!select) return;
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">Todos</option>';
+                    data.forEach(item => {
+                        select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
+                    });
+                    select.value = currentValue;
+                };
+
+                populateSelect('filter-cliente', clientes, 'id', 'nome');
+                populateSelect('filter-elevador', elevadores, 'id', 'endereco');
+                populateSelect('filter-tecnico', tecnicos, 'id', 'nome');
+
+                const tableBody = document.getElementById('chamados-table-body');
+                tableBody.innerHTML = '';
+                chamados.forEach(c => {
+                    const row = tableBody.insertRow();
+                    let tecnicoCellHtml = c.tecnico_responsavel;
+                    if (c.status === 'aberto') {
+                        const techOptions = tecnicos.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+                        tecnicoCellHtml = `
+                            <div class="flex items-center gap-2">
+                                <select data-chamado-id="${c.id_chamado}" class="assign-tech-select block w-full border-slate-300 rounded-md text-sm">
+                                    <option value="">Selecione...</option>
+                                    ${techOptions}
+                                </select>
+                                <button data-chamado-id="${c.id_chamado}" class="assign-btn bg-sky-500 text-white px-2 py-1 rounded text-xs hover:bg-sky-600">Atribuir</button>
+                            </div>`;
+                    }
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">${c.id_chamado}</td>
+                        <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${c.status === 'finalizado' ? 'bg-green-100 text-green-800' : (c.status === 'atribuido' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')}">${c.status}</span></td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.endereco}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${tecnicoCellHtml}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${c.data_abertura}</td>`;
+                });
+                document.querySelectorAll('.assign-btn').forEach(button => button.addEventListener('click', handleManualAssignment));
+                
+                document.getElementById('apply-filters-btn').onclick = () => {
+                    const newFilters = {
+                        data_inicio: document.getElementById('filter-data-inicio').value,
+                        data_fim: document.getElementById('filter-data-fim').value,
+                        cliente_id: document.getElementById('filter-cliente').value,
+                        elevador_id: document.getElementById('filter-elevador').value,
+                        tecnico_id: document.getElementById('filter-tecnico').value,
+                    };
+                    Object.keys(newFilters).forEach(key => !newFilters[key] && delete newFilters[key]);
+                    loadChamadosData(newFilters);
+                };
+
+                document.getElementById('clear-filters-btn').onclick = () => {
+                    document.getElementById('filters').querySelectorAll('input, select').forEach(el => el.value = '');
+                    loadChamadosData();
+                };
+            };
+
+            const handleManualAssignment = async (event) => {
+                const button = event.target;
+                const chamadoId = button.dataset.chamadoId;
+                const select = document.querySelector(`.assign-tech-select[data-chamado-id="${chamadoId}"]`);
+                const tecnicoId = select.value;
+                if (!tecnicoId) {
+                    alert('Por favor, selecione um técnico.');
+                    return;
+                }
+                try {
+                    await apiRequest(`chamado/${chamadoId}/atribuir`, 'POST', { tecnico_id: tecnicoId });
+                    alert('Técnico atribuído com sucesso!');
+                    loadChamadosData();
+                } catch (error) {
+                    alert('Falha ao atribuir técnico.');
+                }
+            };
+
+            // --- Inicialização e Navegação ---
+            ui.mainNav.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A' && e.target.href) {
+                    e.preventDefault();
+                    window.location.hash = new URL(e.target.href).hash;
+                }
+            });
+
+            window.addEventListener('hashchange', () => loadSection(window.location.hash));
+            
+            // --- Lógica de Inicialização ---
             if (state.token) {
                 showMainPanel();
             } else {
@@ -166,8 +726,6 @@
             
             ui.loginForm.addEventListener('submit', handleLogin);
             ui.logoutBtn.addEventListener('click', handleLogout);
-            
-            // ... (restante do código do painel de gestão para carregar secções, etc.) ...
         });
     </script>
 </body>
